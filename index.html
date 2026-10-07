@@ -56,15 +56,8 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 #over h2{color:var(--blood);font-size:2rem}
 .big{font-size:3.2rem;color:var(--gold);line-height:1}
 .rank{color:var(--parch);font-size:1.2rem}
-#board h2{color:var(--gold);font-size:1.8rem;text-align:center;margin:8px 0 4px}
-.note{text-align:center;color:var(--muted);font-size:.9rem;min-height:1.2em;margin-bottom:10px}
-.list{flex:1;overflow-y:auto;margin-bottom:14px}
-.row{display:flex;align-items:center;gap:12px;padding:11px 12px;border-bottom:1px solid rgba(217,178,106,.15)}
-.row.me{background:rgba(217,178,106,.12);border-radius:8px}
-.pos{width:30px;text-align:center;color:var(--gold);font-size:1.15rem}
-.who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1.1rem}
-.yrs{color:var(--gold);font-weight:700}
-.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.vol{display:flex;align-items:center;gap:10px;padding:4px 6px}
+.vol input{flex:1;accent-color:var(--gold);height:28px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(max-height:640px){.avatar{font-size:3.2rem}.ev-d{font-size:1rem}}
 </style>
@@ -80,8 +73,8 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
   <div class="best" id="best"></div>
   <div class="stack">
     <button class="btn gold" onclick="startGame()">Начать правление</button>
-    <button class="btn" onclick="showBoard()">Таблица лидеров</button>
     <button class="btn" id="snd-btn" onclick="toggleSound()">Звук: вкл</button>
+    <div class="vol"><span>🔈</span><input type="range" id="vol" min="0" max="100" step="1" aria-label="Громкость"><span>🔊</span></div>
   </div>
 </section>
 
@@ -114,20 +107,11 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
   <div class="best" id="o-new"></div>
   <div class="stack">
     <button class="btn gold" onclick="startGame()">Править заново</button>
-    <button class="btn" onclick="showBoard()">Таблица лидеров</button>
     <button class="btn" onclick="toMenu()">В меню</button>
   </div>
 </section>
 
-<section class="screen" id="board">
-  <h2>Таблица лидеров</h2>
-  <div class="note" id="b-note"></div>
-  <div class="list" id="b-list"></div>
-  <button class="btn" onclick="toMenu()">Назад</button>
-</section>
-
 <script>
-const API_URL = ""; // адрес сервера из bot.py, например "https://my-bot.onrender.com". Пусто = только локальная таблица.
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 const $ = id => document.getElementById(id);
@@ -214,43 +198,18 @@ function gameOver(k) {
   $("o-y").textContent = `${years} ${plural(years)}`; $("o-rank").textContent = rankOf(years);
   $("o-new").textContent = years > best ? "Новый рекорд!" : "";
   if (years > best) store.set("king_best", years);
-  submitScore(years); show("over"); sfx("lose");
+  show("over"); sfx("lose");
   if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
 }
 
-/* ---------- таблица лидеров ---------- */
-async function submitScore(score) {
-  const local = store.get("king_board", []);
-  const mine = local.find(r => r.id === user.id);
-  if (mine) { if (score > mine.score) mine.score = score; } else local.push({id: user.id, name: user.first_name, score});
-  store.set("king_board", local.sort((a, b) => b.score - a.score).slice(0, 20));
-  if (!API_URL || !tg) return;
-  try {
-    await fetch(API_URL + "/score", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({initData: tg.initData, score})});
-  } catch (e) {}
-}
-async function showBoard() {
-  show("board"); $("b-list").innerHTML = ""; $("b-note").textContent = "Загрузка...";
-  let rows = null;
-  if (API_URL) {
-    try { rows = await (await fetch(API_URL + "/top")).json(); $("b-note").textContent = "Лучшие правители по всему миру"; } catch (e) {}
-  }
-  if (!rows) { rows = store.get("king_board", []); $("b-note").textContent = API_URL ? "Сервер недоступен, показаны результаты на этом устройстве" : "Результаты на этом устройстве"; }
-  const medal = ["🥇", "🥈", "🥉"];
-  $("b-list").innerHTML = rows.length ? rows.map((r, i) =>
-    `<div class="row ${r.id === user.id ? "me" : ""}"><span class="pos">${medal[i] || i + 1}</span><span class="who"></span><span class="yrs">${r.score} ${plural(r.score)}</span></div>`).join("")
-    : `<div class="empty">Пока никого нет. Сыграйте первую партию.</div>`;
-  [...$("b-list").querySelectorAll(".who")].forEach((el, i) => el.textContent = rows[i].name);
-}
-
 /* ---------- музыка и звуки (WebAudio, без файлов) ---------- */
-let ac, master, timer, step = 0, soundOn = store.get("king_sound", true);
+let ac, master, timer, step = 0, soundOn = store.get("king_sound", true), vol = store.get("king_vol", .5);
 const SCALE = [293.66, 329.63, 349.23, 392, 440, 493.88, 523.25, 587.33]; // ре-дорийский лад
 const MELODY = [0, null, 2, null, 4, 3, null, 2, 1, null, 3, null, 2, 0, null, null, 4, null, 5, 4, null, 3, 2, null, 1, null, 2, 0, null, null, null, null];
 function initAudio() {
   if (ac) return;
   ac = new (window.AudioContext || window.webkitAudioContext)();
-  master = ac.createGain(); master.gain.value = soundOn ? .5 : 0; master.connect(ac.destination);
+  master = ac.createGain(); master.gain.value = soundOn ? vol : 0; master.connect(ac.destination);
   [73.42, 110, 146.83, 220].forEach((f, i) => {
     const o = ac.createOscillator(), g = ac.createGain(), l = ac.createOscillator(), lg = ac.createGain();
     o.type = "sine"; o.frequency.value = f; g.gain.value = .045;
@@ -277,8 +236,14 @@ function sfx(type) {
 }
 function toggleSound() {
   soundOn = !soundOn; store.set("king_sound", soundOn); initAudio();
-  master.gain.setTargetAtTime(soundOn ? .5 : 0, ac.currentTime, .1); drawSnd();
+  master.gain.setTargetAtTime(soundOn ? vol : 0, ac.currentTime, .1); drawSnd();
 }
+$("vol").value = Math.round(vol * 100);
+$("vol").addEventListener("input", e => {
+  vol = e.target.value / 100; store.set("king_vol", vol); initAudio();
+  if (vol > 0 && !soundOn) { soundOn = true; store.set("king_sound", true); drawSnd(); }
+  master.gain.setTargetAtTime(soundOn ? vol : 0, ac.currentTime, .05);
+});
 function drawSnd() { $("snd-btn").textContent = "Звук: " + (soundOn ? "вкл" : "выкл"); }
 document.addEventListener("pointerdown", () => { initAudio(); if (ac.state === "suspended") ac.resume(); }, {once: false});
 document.addEventListener("visibilitychange", () => { if (ac) document.hidden ? ac.suspend() : ac.resume(); });
