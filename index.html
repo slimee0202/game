@@ -60,15 +60,22 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 .vol input{flex:1;accent-color:var(--gold);height:28px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(max-height:640px){.avatar{font-size:3.2rem}.ev-d{font-size:1rem}}
+.btn small{display:block;font-size:.85rem;font-weight:400;opacity:.75;margin-top:3px}
+.card{position:relative;touch-action:none}
+#sw{position:absolute;top:12px;left:16px;right:16px;font-size:1.15rem;font-weight:700;color:var(--gold);opacity:0;pointer-events:none;text-shadow:0 2px 6px #000}
+.stat.hl{border-color:var(--gold);transform:scale(1.05)}
+#toast{position:fixed;top:14px;left:50%;transform:translate(-50%,-90px);background:var(--gold);color:#2a1a08;padding:10px 16px;border-radius:12px;font-weight:700;max-width:90%;text-align:center;transition:transform .35s;z-index:9}
+#toast.on{transform:translate(-50%,0)}
 </style>
 </head>
 <body>
 
+<div id="toast"></div>
 <section class="screen on" id="menu">
   <div>
     <div class="crown">👑</div>
     <h1>Симулятор<br>Короля</h1>
-    <p class="sub">Удержи здоровье, любовь народа и казну</p>
+    <p class="sub">Удержи Могущество, Преданность и Казну. Если любой показатель упадёт до нуля или дойдёт до максимума, правлению конец</p>
   </div>
   <div class="best" id="best"></div>
   <div class="stack">
@@ -80,8 +87,8 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 
 <section class="screen" id="game">
   <div class="stats">
-    <div class="stat" id="s-health"><div class="ic">🛡️</div><div class="nm">Здоровье</div><div class="track"><div class="fill" id="f-health"></div></div></div>
-    <div class="stat" id="s-love"><div class="ic">❤️</div><div class="nm">Любовь</div><div class="track"><div class="fill" id="f-love"></div></div></div>
+    <div class="stat" id="s-army"><div class="ic">🛡️</div><div class="nm">Могущество</div><div class="track"><div class="fill" id="f-army"></div></div></div>
+    <div class="stat" id="s-people"><div class="ic">👥</div><div class="nm">Преданность</div><div class="track"><div class="fill" id="f-people"></div></div></div>
     <div class="stat" id="s-treasury"><div class="ic">💰</div><div class="nm">Казна</div><div class="track"><div class="fill" id="f-treasury"></div></div></div>
   </div>
   <div class="yearbar">
@@ -89,6 +96,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
     <button class="icon-btn" onclick="toMenu()" aria-label="В меню">☰</button>
   </div>
   <div class="card" id="card">
+    <div id="sw"></div>
     <div class="avatar" id="av"></div>
     <div class="ev-t" id="et"></div>
     <div class="ev-d" id="ed"></div>
@@ -105,6 +113,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
   <p id="o-r" style="color:var(--muted);font-size:1.1rem"></p>
   <div><div class="big" id="o-y">0</div><div class="rank" id="o-rank"></div></div>
   <div class="best" id="o-new"></div>
+  <div class="best" id="o-dyn"></div>
   <div class="stack">
     <button class="btn gold" onclick="startGame()">Править заново</button>
     <button class="btn" onclick="toMenu()">В меню</button>
@@ -113,7 +122,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 
 <script>
 const tg = window.Telegram && Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) { tg.ready(); tg.expand(); if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }
 const $ = id => document.getElementById(id);
 const user = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {id: 0, first_name: "Игрок"};
 const store = {
@@ -123,61 +132,101 @@ const store = {
 
 // [иконка, заголовок, описание, [текст, здоровье, любовь, казна] x2]
 const EVENTS = [
-["🧙‍♂️","Придворный маг","Предлагает сварить целебное зелье для королевской семьи за счет казны.",["Купить зелье",20,0,-20],["Прогнать мага",-10,0,0]],
-["🌾","Голодный год","Урожай сгорел от засухи. Народ просит открыть амбары и раздать золото.",["Помочь народу",0,25,-25],["Сберечь казну",0,-20,10]],
-["🐉","Дракон в горах","В пещерах поселился дракон и ворует скот крестьян.",["Послать рыцарей",-15,20,-15],["Откупиться золотом",0,-10,-30]],
-["⚔️","Набег разбойников","На границы напала крупная банда. Отправить гвардию или выплатить дань?",["Отправить войска",-10,15,-10],["Заплатить откуп",0,-15,-20]],
-["🏥","Эпидемия лихорадки","В бедных районах столицы вспыхнула неизвестная болезнь.",["Ввести карантин",15,-15,-10],["Игнорировать",-25,-10,0]],
-["👸","Дипломатический брак","Соседний король предлагает выдать за вас свою дочь ради союза.",["Сыграть свадьбу",10,10,20],["Вежливо отказать",0,-10,0]],
-["📜","Налоговая реформа","Министр предлагает поднять налоги для крестьян и снизить для знати.",["Поднять налоги",0,-25,35],["Снизить налоги",0,20,-20]],
-["🏴‍☠️","Пираты","Пираты топят ваши купеческие корабли в южном море.",["Построить флот",0,10,-30],["Нанять наемников",-10,0,-15]],
-["⛪","Верховный жрец","Церковь требует построить грандиозный собор в честь спасения королевства.",["Дать денег на храм",10,15,-25],["Отказать жрецу",0,-20,0]],
-["🕵️","Шпионский заговор","Разведка докладывает, что один из герцогов готовит переворот.",["Арестовать герцога",10,-15,15],["Установить слежку",-15,0,-10]],
-["⛏️","Золотая жила","Шахтеры нашли богатое золото, но рудник аварийный.",["Добывать любой ценой",-15,-10,40],["Укрепить шахты",0,10,-15]],
-["🎪","Бродячий цирк","В столицу приехали артисты! Устроить праздник для всех?",["Устроить пир",10,20,-20],["Запретить шум",0,-15,0]],
-["🏰","Заморский купец","Гильдмейстер предлагает вложить деньги в шелковый путь.",["Инвестировать",0,0,35],["Не рисковать",0,0,0]],
-["🧱","Крепостные стены","Главная цитадель обветшала и требует срочного ремонта.",["Выделить средства",15,0,-25],["Отложить ремонт",-20,0,0]],
-["🎨","Придворный живописец","Знаменитый художник предлагает написать ваш величественный портрет.",["Заказать портрет",0,10,-15],["Выгнать художника",0,-5,0]],
-["⚖️","Суд над крестьянином","Бедняк украл буханку хлеба, чтобы прокормить детей.",["Помиловать",0,15,0],["Наказать по закону",0,-15,5]],
-["🎓","Королевский университет","Ученые просят открыть первую академию наук и искусств.",["Основать академию",10,15,-30],["Деньги нужнее армии",-10,-10,0]],
+["🐉","Дракон в горах","В пещерах поселился дракон и ворует скот крестьян.",["Послать рыцарей",-15,20,-10],["Откупиться золотом",0,-10,-25,"dragon"]],
+["🌾","Голодный год","Урожай сгорел от засухи. Народ просит раздать зерно из королевских амбаров.",["Раздать зерно",0,25,-25],["Сберечь запасы",0,-20,10,"grain"]],
+["⚔️","Набег разбойников","На границы напала крупная банда. Отправить гвардию или выплатить дань?",["Отправить гвардию",-10,15,-10],["Заплатить откуп",0,-15,-20]],
+["🏥","Эпидемия лихорадки","В бедных районах столицы вспыхнула неизвестная болезнь.",["Карантин и лекари",0,10,-15],["Ничего не делать",-15,-20,0,"plague"]],
+["👸","Дипломатический брак","Соседний король предлагает союз и руку своей дочери.",["Сыграть свадьбу",20,10,-15,"heir"],["Вежливо отказать",-10,-5,0]],
+["📜","Налоговая реформа","Министр предлагает поднять налоги для крестьян.",["Поднять налоги",0,-25,35],["Снизить налоги",0,20,-20]],
+["🏴‍☠️","Пираты","Пираты топят ваши торговые корабли в южном море.",["Построить флот",20,5,-30],["Закрыть порты",-10,-15,5]],
+["⛪","Верховный жрец","Церковь требует построить собор в честь спасения королевства.",["Дать денег на храм",0,20,-25],["Отказать жрецу",0,-20,5,"church"]],
+["🕵️","Шпионский заговор","Разведка докладывает: один из герцогов готовит переворот.",["Арестовать герцога",10,-15,15],["Установить слежку",-10,0,-10,"duke"]],
+["⛏️","Золотая жила","Шахтеры нашли золото, но рудник аварийный.",["Добывать любой ценой",0,-20,40,"gold"],["Добывать осторожно",0,5,15]],
+["🎪","Бродячий цирк","В столицу приехали артисты! Устроить праздник для всех?",["Устроить праздник",0,25,-20],["Запретить шум",0,-15,0]],
+["🏰","Заморский купец","Гильдмейстер предлагает вложить деньги в шелковый путь.",["Продать торговые права",0,-10,30],["Не рисковать",0,0,0]],
+["🧱","Крепостные стены","Главная цитадель обветшала и требует срочного ремонта.",["Отремонтировать",20,0,-25],["Отложить ремонт",-20,0,0]],
+["🎨","Придворный живописец","Знаменитый художник предлагает написать ваш портрет.",["Заказать портрет",0,10,-15],["Выгнать художника",0,-5,0]],
+["⚖️","Суд над крестьянином","Бедняк украл буханку хлеба, чтобы прокормить детей.",["Помиловать",-5,20,0],["Наказать по закону",5,-15,5]],
+["🎓","Королевский университет","Ученые просят открыть академию наук и искусств.",["Основать академию",10,15,-30],["Отказать",0,-10,5]],
 ["🌊","Наводнение","Река вышла из берегов и затопила прибрежные деревни.",["Выделить помощь",0,25,-25],["Пусть справляются сами",0,-25,0]],
 ["🐺","Стая лютоволков","Огромные волки нападают на путников в королевском лесу.",["Устроить охоту",10,10,-10],["Закрыть лес",0,-15,0]],
-["🏇","Королевский турнир","Дворяне хотят устроить рыцарский турнир в честь вашего дня рождения.",["Провести турнир",15,15,-25],["Скромно отпраздновать",0,-10,0]]
+["🏇","Королевский турнир","Дворяне хотят устроить рыцарский турнир в честь вашего дня рождения.",["Провести турнир",20,15,-25],["Скромно отпраздновать",0,-10,0]],
+["🛡️","Набор рекрутов","Генерал просит объявить набор новых солдат.",["Объявить набор",25,-15,-10],["Отказать",-10,5,0]],
+["🗡️","Бунт наёмников","Наёмники требуют жалованье и грозят уйти к врагу.",["Заплатить",10,0,-20],["Распустить отряд",-20,0,10]],
+["🏹","Оружейники","Кузнецы предлагают закупить новое оружие для гвардии.",["Закупить",25,0,-25],["Отказаться",-5,0,0]],
+["🏛️","Продажа титулов","Придворные готовы платить золотом за громкие титулы.",["Продать титулы",-5,-10,30],["Отказать",0,5,0]],
+["💎","Опальный барон","Барон, обвинённый в измене, прячет сокровища.",["Конфисковать",5,-10,25],["Простить барона",0,10,0]],
+// цепочки последствий (6-й элемент = ключ, в обычную колоду не попадают)
+["🐉","Дракон вернулся","Откупленный дракон требует больше золота и жжёт деревни.",["Убить дракона",-25,25,-10],["Платить дань",0,-10,-25],"dragon"],
+["🌾","Бунт голодных","Голодные толпы идут к замку.",["Раздать зерно",0,15,-20],["Разогнать толпу",-10,-25,0],"grain"],
+["☠️","Чума в столице","Болезнь расползлась по городам.",["Закрыть город",-10,-10,-20],["Молиться и ждать",-10,-25,0],"plague"],
+["👶","Наследник","Королева родила сына. Народ ликует!",["Устроить пир",0,25,-20],["Скромно отметить",0,10,0],"heir"],
+["🗡️","Герцог поднял мятеж","Заговорщик больше не прячется!",["Подавить силой",-20,0,-10],["Откупиться",0,-10,-25],"duke"],
+["⛪","Церковный раскол","Жрецы проклинают вас с амвона.",["Дать золото церкви",0,10,-25],["Изгнать жрецов",5,-25,10],"church"],
+["⛏️","Обвал в шахте","Рудник рухнул, погибли рабочие.",["Выплатить семьям",0,15,-25],["Скрыть правду",0,-25,0],"gold"]
 ];
-const KEYS = ["health", "love", "treasury"];
+const KEYS = ["army", "people", "treasury"];
+const NAMES = ["Могущество", "Преданность", "Казна"], ICONS = ["🛡️", "👥", "💰"];
+const EASE = 1.3;            // множитель силы эффектов: больше = сложнее
+let mercy = true;             // «Милость короны»: один спасительный шанс за правление
+function toast(t) { const e = $("toast"); e.textContent = t; e.classList.add("on"); setTimeout(() => e.classList.remove("on"), 2400); }
+function hint(o, a) { return "<small>" + a + " " + KEYS.map((k, n) => o[n + 1] ? ICONS[n] : "").join(" ") + "</small>"; }
 const DEATHS = {
-  health: ["⚰️", "Вы подхватили недуг и не оправились. Королевство скорбит."],
-  love: ["🔥", "Разгневанный народ поднял бунт и сверг вас с престола."],
-  treasury: ["💸", "Казна пуста, долги разрушили экономику. Королевство обанкротилось."]
+  army: ["⚔️", "Армия разбита, враги взяли столицу. Трон потерян."],
+  people: ["🔥", "Разгневанный народ поднял бунт и сверг вас с престола."],
+  treasury: ["💸", "Казна пуста, долги разрушили королевство."]
 };
-const rankOf = y => y >= 30 ? "Великий монарх" : y >= 20 ? "Мудрый король" : y >= 10 ? "Достойный король" : y >= 5 ? "Новичок на троне" : "Короткое правление";
+const DEATHS_HI = {
+  army: ["🗡️", "Армия стала слишком могущественной. Генералы устроили переворот и посадили на трон своего."],
+  people: ["🔥", "Народ боготворит вас, и знать, испугавшись такой любви, отравила вас на пиру."],
+  treasury: ["🏴‍☠️", "Слухи о несметных богатствах привлекли соседей. Они напали и разграбили казну."]
+};
+const rankOf = y => y >= 50 ? "Легендарный государь" : y >= 30 ? "Великий монарх" : y >= 20 ? "Мудрый король" : y >= 10 ? "Достойный король" : y >= 5 ? "Новичок на троне" : "Короткое правление";
 const plural = n => { const a = n % 100, b = n % 10; return (a > 10 && a < 15) ? "лет" : b === 1 ? "год" : (b > 1 && b < 5) ? "года" : "лет"; };
 
-let stats, year, deck = [], cur, busy = false;
+let stats, year, recent = [], cur, busy = false, queue = [];
 
 function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); }
-function toMenu() { const b = store.get("king_best", 0); $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` : ""; show("menu"); }
-function draw() { if (!deck.length) { deck = EVENTS.map((_, i) => i).sort(() => Math.random() - .5); } return deck.pop(); }
-
+function toMenu() { const b = store.get("king_best", 0); $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") : ""; show("menu"); }
+function draw() {
+  // Если показатель просел (35 и ниже), колода помогает: не выпадают карточки, где оба ответа бьют по нему,
+  // всегда есть ответ без вылета, а карточки с восстановлением выпадают чаще.
+  const low = KEYS.map((k, n) => [k, n]).filter(([k]) => stats[k] <= 25);
+  const gain = (e, n) => Math.max(e[3][n + 1], e[4][n + 1]);
+  const safe = e => [e[3], e[4]].some(o => KEYS.every((k, n) => stats[k] + o[n + 1] > 5));
+  const qi = queue.findIndex(q => q.at <= year);
+  if (qi >= 0) { const q = queue.splice(qi, 1)[0], i = EVENTS.findIndex(e => e[5] === q.k); recent.push(i); if (recent.length > 6) recent.shift(); return i; }
+  let pool = EVENTS.map((e, i) => i).filter(i => !recent.includes(i) && !EVENTS[i][5]);
+  if (low.length) {
+    const ok = pool.filter(i => safe(EVENTS[i]) && low.every(([k, n]) => gain(EVENTS[i], n) >= 0));
+    if (ok.length) pool = ok;
+  }
+  const w = i => 1 + low.reduce((sum, [k, n]) => { const g = gain(EVENTS[i], n); return sum + (g >= 15 ? (stats[k] <= 20 ? 10 : 5) : g > 0 ? 1 : 0); }, 0);
+  let r = Math.random() * pool.reduce((a, i) => a + w(i), 0), pick = pool[pool.length - 1];
+  for (const i of pool) { r -= w(i); if (r <= 0) { pick = i; break; } }
+  recent.push(pick); if (recent.length > 6) recent.shift();
+  return pick;
+}
 function paint() {
-  KEYS.forEach(k => { const f = $("f-" + k); f.style.width = stats[k] + "%"; f.classList.toggle("low", stats[k] <= 20); });
-  $("year").textContent = `Год ${year} правления`;
+  KEYS.forEach(k => { const f = $("f-" + k); f.style.width = stats[k] + "%"; f.classList.toggle("low", stats[k] <= 20 || stats[k] >= 80); });
+  $("year").textContent = `Король №${store.get("king_n", 1)} · Год ${year}` + (mercy ? " · ✨" : "");
 }
 function render() {
   const e = EVENTS[cur];
-  $("av").textContent = e[0]; $("et").textContent = e[1]; $("ed").textContent = e[2];
-  $("b1").textContent = e[3][0]; $("b2").textContent = e[4][0];
-  const c = $("card"); c.classList.remove("in"); void c.offsetWidth; c.classList.add("in");
+  $("av").textContent = e[0]; $("et").textContent = (e[5] ? "⛓ " : "") + e[1]; $("ed").textContent = e[2];
+  $("b1").innerHTML = e[3][0] + hint(e[3], "→"); $("b2").innerHTML = e[4][0] + hint(e[4], "←");
+  const c = $("card"); c.style.transition = c.style.transform = c.style.opacity = ""; c.classList.remove("in"); void c.offsetWidth; c.classList.add("in");
 }
 function startGame() {
-  stats = {health: 50, love: 50, treasury: 50}; year = 1; busy = false;
+  stats = {army: 50, people: 50, treasury: 50}; year = 1; mercy = true; queue = []; busy = false; recent = [];
   cur = draw(); paint(); render(); show("game"); sfx("start");
 }
 function choose(i) {
   if (busy) return; busy = true;
   const o = EVENTS[cur][3 + i];
+  if (o[4]) queue.push({k: o[4], at: year + 2 + Math.floor(Math.random() * 3)});
   KEYS.forEach((k, n) => {
-    const d = o[n + 1]; if (!d) return;
+    const d = Math.round(o[n + 1] * EASE); if (!d) return;
     stats[k] = Math.max(0, Math.min(100, stats[k] + d));
     const el = $("s-" + k), p = document.createElement("span");
     p.className = "pop " + (d > 0 ? "p" : "m"); p.textContent = (d > 0 ? "+" : "") + d;
@@ -187,14 +236,22 @@ function choose(i) {
   if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
   sfx("tap"); year++; paint();
   setTimeout(() => {
-    const dead = KEYS.find(k => stats[k] <= 0);
+    let dead = KEYS.find(k => stats[k] <= 0 || stats[k] >= 100);
+    if (dead && mercy) { const n = KEYS.indexOf(dead); mercy = false; stats[dead] = stats[dead] >= 100 ? 70 : 30; dead = null; toast(`✨ Милость короны спасла: ${ICONS[n]} ${NAMES[n]}`); }
     if (dead) return gameOver(dead);
+    if ((year - 1) % 8 === 0) {
+      const n = KEYS.reduce((m, k, i) => stats[k] < stats[KEYS[m]] ? i : m, 0);
+      stats[KEYS[n]] = Math.min(100, stats[KEYS[n]] + 5); toast(`🎉 ${year - 1} лет у власти! ${ICONS[n]} ${NAMES[n]} +5`);
+    }
+    paint();
     cur = draw(); render(); busy = false;
   }, 450);
 }
 function gameOver(k) {
   const years = year - 1, best = store.get("king_best", 0);
-  $("o-ic").textContent = DEATHS[k][0]; $("o-r").textContent = DEATHS[k][1];
+  const kn = store.get("king_n", 1), tot = store.get("king_total", 0) + years; store.set("king_n", kn + 1); store.set("king_total", tot);
+  $("o-dyn").textContent = `Король №${kn} · всего за династию: ${tot} ${plural(tot)}`;
+  const D = (stats[k] >= 100 ? DEATHS_HI : DEATHS)[k]; $("o-ic").textContent = D[0]; $("o-r").textContent = D[1];
   $("o-y").textContent = `${years} ${plural(years)}`; $("o-rank").textContent = rankOf(years);
   $("o-new").textContent = years > best ? "Новый рекорд!" : "";
   if (years > best) store.set("king_best", years);
@@ -247,6 +304,22 @@ $("vol").addEventListener("input", e => {
 function drawSnd() { $("snd-btn").textContent = "Звук: " + (soundOn ? "вкл" : "выкл"); }
 document.addEventListener("pointerdown", () => { initAudio(); if (ac.state === "suspended") ac.resume(); }, {once: false});
 document.addEventListener("visibilitychange", () => { if (ac) document.hidden ? ac.suspend() : ac.resume(); });
+
+/* ---------- свайп карточки (как в Reigns): вправо = верхний вариант, влево = нижний ---------- */
+const card = $("card"); let drag = null, dx = 0;
+function swPaint(d) {
+  const sw = $("sw"), o = EVENTS[cur][d > 0 ? 3 : 4], on = Math.abs(d) > 20;
+  sw.textContent = on ? o[0] : ""; sw.style.opacity = Math.min(1, Math.abs(d) / 90); sw.style.textAlign = d > 0 ? "right" : "left";
+  KEYS.forEach((k, n) => $("s-" + k).classList.toggle("hl", on && !!o[n + 1]));
+}
+card.addEventListener("pointerdown", e => { if (busy || e.target.closest("button")) return; drag = e.clientX; dx = 0; card.setPointerCapture(e.pointerId); card.style.transition = "none"; });
+card.addEventListener("pointermove", e => { if (drag === null) return; dx = e.clientX - drag; card.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`; swPaint(dx); });
+function endDrag() {
+  if (drag === null) return; drag = null; card.style.transition = "transform .25s,opacity .25s"; const d = dx; swPaint(0); dx = 0;
+  if (Math.abs(d) > 90) { const s = d > 0 ? 1 : -1; card.style.transform = `translateX(${s * 480}px) rotate(${s * 25}deg)`; card.style.opacity = 0; choose(d > 0 ? 0 : 1); }
+  else card.style.transform = "";
+}
+card.addEventListener("pointerup", endDrag); card.addEventListener("pointercancel", endDrag);
 
 drawSnd(); toMenu();
 </script>
