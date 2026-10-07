@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Fate Simulator</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1c1c1e;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 90vh;
+            user-select: none;
+        }
+
+        .header {
+            text-align: center;
+            width: 100%;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 15px;
+            background: #2c2c2e;
+            padding: 12px 0;
+            border-radius: 12px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .card-container {
+            background: #2c2c2e;
+            border: 2px solid #3a3a3c;
+            border-radius: 18px;
+            padding: 25px 20px;
+            width: 85%;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            margin: 20px 0;
+        }
+
+        .card-text {
+            font-size: 17px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn-yes { background-color: #34c759; color: white; }
+        .btn-no { background-color: #ff3b30; color: white; }
+        .btn-restart { background-color: #007aff; color: white; width: 100%; }
+
+        .report {
+            font-size: 13px;
+            color: #8e8e93;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="margin:0;">👑 Симулятор Короля</h2>
+        <div class="stats">
+            <div class="stat-item">❤️ Здоровье <span id="health" class="stat-value">50</span></div>
+            <div class="stat-item">👥 Любовь <span id="love" class="stat-value">50</span></div>
+            <div class="stat-item">💰 Казна <span id="wealth" class="stat-value">50</span></div>
+        </div>
+        <div id="year" style="margin-top: 10px; color: #a1a1a6;">Год правления: 1 / 100</div>
+    </div>
+
+    <div class="card-container" id="game-box">
+        <div class="card-text" id="card-text">Загрузка прошения...</div>
+        <div class="report" id="report"></div>
+    </div>
+
+    <div class="buttons" id="action-buttons">
+        <button class="btn btn-yes" onclick="makeChoice('yes')" id="btn-yes">✅ Принять</button>
+        <button class="btn btn-no" onclick="makeChoice('no')" id="btn-no">❌ Отказать</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let state = {
+            year: 1,
+            health: 50,
+            love: 50,
+            wealth: 50,
+            currentCard: null,
+            history: []
+        };
+
+        const CARDS = [
+            { id: 1, text: "🌾 Крестьяне: «Засуха погубила урожай. Выделите золото из казны на зерно!»", yesText: "Выделить", noText: "Отказать", yes: [0, 20, -25], no: [-10, -25, 10] },
+            { id: 2, text: "⚔️ Генерал: «Соседнее королевство собирает войска. Нанимаем наёмников?»", yesText: "Нанять", noText: "Игнорировать", yes: [15, 5, -30], no: [-30, -10, 0] },
+            { id: 3, text: "🧙‍♂️ Алхимик: «Я создал эликсир вечной молодости! Испробуете?»", yesText: "Выпить", noText: "Прогнать", yes: [-25, 0, -10], no: [5, 0, 0] },
+            { id: 4, text: "🎭 Артисты: «Устроим пышный карнавал в честь Вашего правления?»", yesText: "Устроить", noText: "Запретить", yes: [5, 25, -20], no: [0, -15, 10] },
+            { id: 5, text: "💰 Купцы: «Мы хотим построить торговый порт. Дадите денег?»", yesText: "Построить", noText: "Поднять налоги", yes: [0, 10, -20], no: [0, -15, 25] },
+            { id: 6, text: "🐉 Пастухи: «Дракон в горах крадёт скот! Спасите нас!»", yesText: "Послать рыцарей", noText: "Игнорировать", yes: [10, 20, -25], no: [-15, -20, 0] }
+        ];
+
+        function updateUI() {
+            document.getElementById('health').innerText = state.health;
+            document.getElementById('love').innerText = state.love;
+            document.getElementById('wealth').innerText = state.wealth;
+            document.getElementById('year').innerText = `Год правления: ${state.year} / 100`;
+
+            const ending = checkEnding();
+            if (ending) {
+                document.getElementById('card-text').innerHTML = ending;
+                document.getElementById('action-buttons').innerHTML = `<button class="btn btn-restart" onclick="restartGame()">🔄 Взойти на трон заново</button>`;
+                document.getElementById('report').innerText = '';
+                return;
+            }
+
+            nextCard();
+        }
+
+        function checkEnding() {
+            if (state.year > 100) return "👑 <b>ВЕЛИКАЯ ПОБЕДА!</b><br>Вы проправли 100 лет и вошли в историю!";
+            if (state.health <= 0) return "💀 <b>СВЕРЖЕНИЕ И БОЛЕЗНЬ</b><br>Ваше здоровье не выдержало.";
+            if (state.love <= 0) return "🔥 <b>НАРОДНЫЙ БУНТ</b><br>Разгневанная толпа свергла вас!";
+            if (state.wealth <= 0) return "🕳️ <b>РАЗОРЕНИЕ</b><br>Казна опустела, королевство банкрот.";
+            return null;
+        }
+
+        function nextCard() {
+            const available = CARDS.filter(c => !state.history.includes(c.id));
+            const pool = available.length ? available : CARDS;
+            state.currentCard = pool[Math.floor(Math.random() * pool.length)];
+
+            state.history.push(state.currentCard.id);
+            if (state.history.length > 3) state.history.shift();
+
+            document.getElementById('card-text').innerText = state.currentCard.text;
+            document.getElementById('btn-yes').innerText = "✅ " + state.currentCard.yesText;
+            document.getElementById('btn-no').innerText = "❌ " + state.currentCard.noText;
+        }
+
+        function makeChoice(type) {
+            const effect = state.currentCard[type];
+            state.health += effect[0];
+            state.love += effect[1];
+            state.wealth += effect[2];
+            state.year += 1;
+
+            document.getElementById('report').innerText = `Результат: ❤️${effect[0] >= 0 ? '+'+effect[0] : effect[0]} | 👥${effect[1] >= 0 ? '+'+effect[1] : effect[1]} | 💰${effect[2] >= 0 ? '+'+effect[2] : effect[2]}`;
+            updateUI();
+        }
+
+        function restartGame() {
+            state = { year: 1, health: 50, love: 50, wealth: 50, currentCard: null, history: [] };
+            document.getElementById('action-buttons').innerHTML = `
+                <button class="btn btn-yes" onclick="makeChoice('yes')" id="btn-yes">✅ Принять</button>
+                <button class="btn btn-no" onclick="makeChoice('no')" id="btn-no">❌ Отказать</button>
+            `;
+            updateUI();
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>
