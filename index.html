@@ -2,205 +2,432 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Fate Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Симулятор Короля</title>
+    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #1c1c1e;
-            color: #ffffff;
+        :root {
+            --bg-color: #12131C;
+            --card-bg: #1E202E;
+            --text-color: #FFFFFF;
+            --accent-gold: #FFD700;
+            --green: #2ECC71;
+            --red: #E74C3C;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            min-height: 90vh;
-            user-select: none;
+            min-height: 100vh;
+            padding: 20px 15px;
         }
 
+        /* Шапка с показателями */
         .header {
-            text-align: center;
             width: 100%;
-        }
-
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            margin-top: 15px;
-            background: #2c2c2e;
-            padding: 12px 0;
-            border-radius: 12px;
-        }
-
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            font-size: 14px;
-        }
-
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 4px;
-        }
-
-        .card-container {
-            background: #2c2c2e;
-            border: 2px solid #3a3a3c;
-            border-radius: 18px;
-            padding: 25px 20px;
-            width: 85%;
-            text-align: center;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            margin: 20px 0;
-        }
-
-        .card-text {
-            font-size: 17px;
-            line-height: 1.5;
+            max-width: 400px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
             margin-bottom: 20px;
         }
 
-        .buttons {
+        .stat-card {
+            background: var(--card-bg);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 12px 8px;
+            text-align: center;
+            position: relative;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .stat-icon {
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+        }
+
+        .stat-title {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-top: 2px;
+            color: var(--accent-gold);
+        }
+
+        /* Анимации подсветки и всплывающих цифр */
+        .stat-card.flash-increase {
+            animation: pulseGreen 0.6s ease;
+        }
+
+        .stat-card.flash-decrease {
+            animation: pulseRed 0.6s ease;
+        }
+
+        @keyframes pulseGreen {
+            0% { transform: scale(1); border-color: var(--green); box-shadow: 0 0 0px var(--green); }
+            50% { transform: scale(1.08); border-color: var(--green); box-shadow: 0 0 15px var(--green); }
+            100% { transform: scale(1); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 0 0px var(--green); }
+        }
+
+        @keyframes pulseRed {
+            0% { transform: scale(1); border-color: var(--red); box-shadow: 0 0 0px var(--red); }
+            50% { transform: scale(1.08); border-color: var(--red); box-shadow: 0 0 15px var(--red); }
+            100% { transform: scale(1); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 0 0px var(--red); }
+        }
+
+        .floating-change {
+            position: absolute;
+            top: -12px;
+            right: 10px;
+            font-size: 1.2rem;
+            font-weight: 800;
+            pointer-events: none;
+            animation: floatUpAndFade 0.9s ease-out forwards;
+        }
+
+        .floating-change.plus {
+            color: var(--green);
+            text-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+        }
+
+        .floating-change.minus {
+            color: var(--red);
+            text-shadow: 0 0 8px rgba(231, 76, 60, 0.6);
+        }
+
+        @keyframes floatUpAndFade {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            50% { opacity: 1; transform: translateY(-18px) scale(1.2); }
+            100% { opacity: 0; transform: translateY(-32px) scale(0.8); }
+        }
+
+        /* Игровое поле с событием */
+        .game-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            flex-grow: 1;
             display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .year-badge {
+            display: inline-block;
+            background: rgba(255, 215, 0, 0.15);
+            color: var(--accent-gold);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .event-avatar {
+            font-size: 4rem;
+            margin: 15px 0;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+        }
+
+        .event-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #E2E8F0;
+        }
+
+        .event-description {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            opacity: 0.8;
+            margin-bottom: 25px;
+        }
+
+        /* Кнопки решений */
+        .actions {
+            display: flex;
+            flex-direction: column;
             gap: 12px;
             width: 100%;
         }
 
         .btn {
-            flex: 1;
+            width: 100%;
             padding: 14px;
             border: none;
             border-radius: 12px;
-            font-size: 15px;
-            font-weight: bold;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: transform 0.1s ease, background-color 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #3B82F6;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #475569;
+            color: white;
         }
 
         .btn:active {
-            transform: scale(0.96);
+            transform: scale(0.97);
         }
 
-        .btn-yes { background-color: #34c759; color: white; }
-        .btn-no { background-color: #ff3b30; color: white; }
-        .btn-restart { background-color: #007aff; color: white; width: 100%; }
+        /* Окно Game Over */
+        .game-over {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
 
-        .report {
-            font-size: 13px;
-            color: #8e8e93;
-            margin-top: 10px;
-            min-height: 20px;
+        .game-over h2 {
+            color: var(--red);
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .game-over p {
+            margin-bottom: 20px;
+            opacity: 0.8;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
+    <!-- Показатели королевства -->
     <div class="header">
-        <h2 style="margin:0;">👑 Симулятор Короля</h2>
-        <div class="stats">
-            <div class="stat-item">❤️ Здоровье <span id="health" class="stat-value">50</span></div>
-            <div class="stat-item">👥 Любовь <span id="love" class="stat-value">50</span></div>
-            <div class="stat-item">💰 Казна <span id="wealth" class="stat-value">50</span></div>
+        <div class="stat-card" id="card-health">
+            <div class="stat-icon">🛡️</div>
+            <div class="stat-title">Здоровье</div>
+            <div class="stat-value" id="val-health">50</div>
         </div>
-        <div id="year" style="margin-top: 10px; color: #a1a1a6;">Год правления: 1 / 100</div>
+
+        <div class="stat-card" id="card-love">
+            <div class="stat-icon">❤️</div>
+            <div class="stat-title">Любовь</div>
+            <div class="stat-value" id="val-love">50</div>
+        </div>
+
+        <div class="stat-card" id="card-treasury">
+            <div class="stat-icon">💰</div>
+            <div class="stat-title">Казна</div>
+            <div class="stat-value" id="val-treasury">50</div>
+        </div>
     </div>
 
-    <div class="card-container" id="game-box">
-        <div class="card-text" id="card-text">Загрузка прошения...</div>
-        <div class="report" id="report"></div>
-    </div>
+    <!-- Карточка события -->
+    <div class="game-card">
+        <div id="play-screen">
+            <div class="year-badge" id="year-tag">Год 1 вашего правления</div>
+            <div class="event-avatar" id="event-avatar">🧙‍♂️</div>
+            <div class="event-title" id="event-title">Прибыл придворный маг</div>
+            <div class="event-description" id="event-desc">
+                Маг предлагает создать зелье бессмертия за счет казны. Согласимся?
+            </div>
 
-    <div class="buttons" id="action-buttons">
-        <button class="btn btn-yes" onclick="makeChoice('yes')" id="btn-yes">✅ Принять</button>
-        <button class="btn btn-no" onclick="makeChoice('no')" id="btn-no">❌ Отказать</button>
+            <div class="actions">
+                <button class="btn btn-primary" id="btn-left" onclick="makeChoice(1)">Да, вари зелье!</button>
+                <button class="btn btn-secondary" id="btn-right" onclick="makeChoice(2)">Отказать ему</button>
+            </div>
+        </div>
+
+        <!-- Окончание игры -->
+        <div class="game-over" id="game-over-screen">
+            <div class="event-avatar" id="death-icon">💀</div>
+            <h2 id="death-title">Королевство пало!</h2>
+            <p id="death-reason">Ваше правление закончилось печально.</p>
+            <button class="btn btn-primary" onclick="restartGame()">Начать заново</button>
+        </div>
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if (tg) tg.expand();
 
-        let state = {
-            year: 1,
+        // Состояние игры
+        let stats = {
             health: 50,
             love: 50,
-            wealth: 50,
-            currentCard: null,
-            history: []
+            treasury: 50
         };
+        let year = 1;
+        let currentEventIndex = 0;
 
-        const CARDS = [
-            { id: 1, text: "🌾 Крестьяне: «Засуха погубила урожай. Выделите золото из казны на зерно!»", yesText: "Выделить", noText: "Отказать", yes: [0, 20, -25], no: [-10, -25, 10] },
-            { id: 2, text: "⚔️ Генерал: «Соседнее королевство собирает войска. Нанимаем наёмников?»", yesText: "Нанять", noText: "Игнорировать", yes: [15, 5, -30], no: [-30, -10, 0] },
-            { id: 3, text: "🧙‍♂️ Алхимик: «Я создал эликсир вечной молодости! Испробуете?»", yesText: "Выпить", noText: "Прогнать", yes: [-25, 0, -10], no: [5, 0, 0] },
-            { id: 4, text: "🎭 Артисты: «Устроим пышный карнавал в честь Вашего правления?»", yesText: "Устроить", noText: "Запретить", yes: [5, 25, -20], no: [0, -15, 10] },
-            { id: 5, text: "💰 Купцы: «Мы хотим построить торговый порт. Дадите денег?»", yesText: "Построить", noText: "Поднять налоги", yes: [0, 10, -20], no: [0, -15, 25] },
-            { id: 6, text: "🐉 Пастухи: «Дракон в горах крадёт скот! Спасите нас!»", yesText: "Послать рыцарей", noText: "Игнорировать", yes: [10, 20, -25], no: [-15, -20, 0] }
+        // База событий (карточек)
+        const events = [
+            {
+                avatar: "🧙‍♂️",
+                title: "Придворный маг",
+                desc: "Предлагает сварить целебное зелье для королевской семьи за счет казны.",
+                option1: { text: "Купить зелье", health: +20, love: 0, treasury: -25 },
+                option2: { text: "Прогнать мага", health: -10, love: 0, treasury: 0 }
+            },
+            {
+                avatar: "🌾",
+                title: "Голодный год",
+                desc: "Урожай сгорел от засухи. Народ просит открыть царские амбары и раздать золото.",
+                option1: { text: "Помочь народу", health: 0, love: +25, treasury: -30 },
+                option2: { text: "Сберечь казну", health: 0, love: -25, treasury: +10 }
+            },
+            {
+                avatar: "⚔️",
+                title: "Набег разбойников",
+                desc: "На границы напала банда. Отправить гвардию или откупиться?",
+                option1: { text: "Отправить войска", health: -15, love: +10, treasury: -10 },
+                option2: { text: "Заплатить откуп", health: 0, love: -10, treasury: -25 }
+            },
+            {
+                avatar: "🎪",
+                title: "Бродячий цирк",
+                desc: "В столицу приехали артисты! Устроить грандиозный праздник для всех?",
+                option1: { text: "Устроить пир", health: +10, love: +20, treasury: -20 },
+                option2: { text: "Запретить шум", health: 0, love: -15, treasury: 0 }
+            },
+            {
+                avatar: "🏰",
+                title: "Заморский купец",
+                desc: "Предлагает вложить деньги в шелковый путь с огромной выгодой.",
+                option1: { text: "Инвестировать", health: 0, love: 0, treasury: +35 },
+                option2: { text: "Не рисковать", health: 0, love: 0, treasury: 0 }
+            }
         ];
 
-        function updateUI() {
-            document.getElementById('health').innerText = state.health;
-            document.getElementById('love').innerText = state.love;
-            document.getElementById('wealth').innerText = state.wealth;
-            document.getElementById('year').innerText = `Год правления: ${state.year} / 100`;
+        // Функция обновления характеристики с ВСПЛЫВАЮЩЕЙ АНИМАЦИЕЙ
+        function updateStatWithAnimation(statKey, change) {
+            if (change === 0) return;
 
-            const ending = checkEnding();
-            if (ending) {
-                document.getElementById('card-text').innerHTML = ending;
-                document.getElementById('action-buttons').innerHTML = `<button class="btn btn-restart" onclick="restartGame()">🔄 Взойти на трон заново</button>`;
-                document.getElementById('report').innerText = '';
-                return;
+            const card = document.getElementById(`card-${statKey}`);
+            const valElem = document.getElementById(`val-${statKey}`);
+
+            // Рассчитываем новое значение (от 0 до 100)
+            stats[statKey] = Math.max(0, Math.min(100, stats[statKey] + change));
+
+            // 1. Создаем всплывающую цифру (+10 / -15)
+            const floatTag = document.createElement('span');
+            floatTag.className = `floating-change ${change > 0 ? 'plus' : 'minus'}`;
+            floatTag.textContent = change > 0 ? `+${change}` : `${change}`;
+            card.appendChild(floatTag);
+
+            setTimeout(() => floatTag.remove(), 900);
+
+            // 2. Пульсация карточки (зеленая или красная)
+            const flashClass = change > 0 ? 'flash-increase' : 'flash-decrease';
+            card.classList.add(flashClass);
+            setTimeout(() => card.classList.remove(flashClass), 600);
+
+            // 3. Обновляем цифру
+            valElem.textContent = stats[statKey];
+        }
+
+        // Применение решения игрока
+        function makeChoice(optionNumber) {
+            const currentEvent = events[currentEventIndex];
+            const choice = optionNumber === 1 ? currentEvent.option1 : currentEvent.option2;
+
+            // Применяем изменения с анимацией
+            updateStatWithAnimation('health', choice.health);
+            updateStatWithAnimation('love', choice.love);
+            updateStatWithAnimation('treasury', choice.treasury);
+
+            year++;
+            document.getElementById('year-tag').textContent = `Год ${year} вашего правления`;
+
+            // Проверка поражения
+            setTimeout(() => {
+                if (checkGameOver()) return;
+
+                // Переход к следующей карточке
+                currentEventIndex = (currentEventIndex + 1) % events.length;
+                renderEvent();
+            }, 400);
+        }
+
+        // Отображение текущего события
+        function renderEvent() {
+            const ev = events[currentEventIndex];
+            document.getElementById('event-avatar').textContent = ev.avatar;
+            document.getElementById('event-title').textContent = ev.title;
+            document.getElementById('event-desc').textContent = ev.desc;
+            document.getElementById('btn-left').textContent = ev.option1.text;
+            document.getElementById('btn-right').textContent = ev.option2.text;
+        }
+
+        // Проверка условия поражения
+        function checkGameOver() {
+            let reason = "";
+            let icon = "💀";
+
+            if (stats.health <= 0) {
+                reason = "Вы подхватили недуг и не смогли оправиться. Королевство скорбит.";
+                icon = "⚰️";
+            } else if (stats.love <= 0) {
+                reason = "Разгневанный народ устроил бунт и сверг вас с престола!";
+                icon = "🔥";
+            } else if (stats.treasury <= 0) {
+                reason = "Казна опустела, а долги разрушили экономику. Королевство обанкротилось.";
+                icon = "💸";
             }
 
-            nextCard();
+            if (reason) {
+                document.getElementById('play-screen').style.display = 'none';
+                document.getElementById('game-over-screen').style.display = 'flex';
+                document.getElementById('death-icon').textContent = icon;
+                document.getElementById('death-reason').textContent = reason;
+                return true;
+            }
+            return false;
         }
 
-        function checkEnding() {
-            if (state.year > 100) return "👑 <b>ВЕЛИКАЯ ПОБЕДА!</b><br>Вы проправли 100 лет и вошли в историю!";
-            if (state.health <= 0) return "💀 <b>СВЕРЖЕНИЕ И БОЛЕЗНЬ</b><br>Ваше здоровье не выдержало.";
-            if (state.love <= 0) return "🔥 <b>НАРОДНЫЙ БУНТ</b><br>Разгневанная толпа свергла вас!";
-            if (state.wealth <= 0) return "🕳️ <b>РАЗОРЕНИЕ</b><br>Казна опустела, королевство банкрот.";
-            return null;
-        }
-
-        function nextCard() {
-            const available = CARDS.filter(c => !state.history.includes(c.id));
-            const pool = available.length ? available : CARDS;
-            state.currentCard = pool[Math.floor(Math.random() * pool.length)];
-
-            state.history.push(state.currentCard.id);
-            if (state.history.length > 3) state.history.shift();
-
-            document.getElementById('card-text').innerText = state.currentCard.text;
-            document.getElementById('btn-yes').innerText = "✅ " + state.currentCard.yesText;
-            document.getElementById('btn-no').innerText = "❌ " + state.currentCard.noText;
-        }
-
-        function makeChoice(type) {
-            const effect = state.currentCard[type];
-            state.health += effect[0];
-            state.love += effect[1];
-            state.wealth += effect[2];
-            state.year += 1;
-
-            document.getElementById('report').innerText = `Результат: ❤️${effect[0] >= 0 ? '+'+effect[0] : effect[0]} | 👥${effect[1] >= 0 ? '+'+effect[1] : effect[1]} | 💰${effect[2] >= 0 ? '+'+effect[2] : effect[2]}`;
-            updateUI();
-        }
-
+        // Перезапуск игры
         function restartGame() {
-            state = { year: 1, health: 50, love: 50, wealth: 50, currentCard: null, history: [] };
-            document.getElementById('action-buttons').innerHTML = `
-                <button class="btn btn-yes" onclick="makeChoice('yes')" id="btn-yes">✅ Принять</button>
-                <button class="btn btn-no" onclick="makeChoice('no')" id="btn-no">❌ Отказать</button>
-            `;
-            updateUI();
+            stats = { health: 50, love: 50, treasury: 50 };
+            year = 1;
+            currentEventIndex = 0;
+
+            document.getElementById('val-health').textContent = 50;
+            document.getElementById('val-love').textContent = 50;
+            document.getElementById('val-treasury').textContent = 50;
+            document.getElementById('year-tag').textContent = `Год 1 вашего правления`;
+
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('play-screen').style.display = 'block';
+
+            renderEvent();
         }
 
-        updateUI();
+        // Старт игры
+        renderEvent();
     </script>
 </body>
 </html>
