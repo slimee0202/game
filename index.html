@@ -81,11 +81,19 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 .item b{color:var(--gold)}.item small{display:block;color:var(--muted);margin-top:2px;font-size:.92rem}.item.lock{opacity:.45}
 #toast{position:fixed;top:14px;left:50%;transform:translate(-50%,-90px);background:var(--gold);color:#2a1a08;padding:10px 16px;border-radius:12px;font-weight:700;max-width:90%;text-align:center;transition:transform .35s;z-index:9}
 #toast.on{transform:translate(-50%,0)}
+.stat.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.card.in .avatar svg{animation:pop .5s}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;z-index:8}
+.opts{display:none;flex-direction:column;gap:8px;margin-top:8px}
+.opts .btn{padding:9px;font-size:.95rem}
+body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-s="2"]{--velvet2:#4a2a22}body[data-s="3"]{--velvet2:#26324a}
 </style>
 </head>
 <body>
 
-<div id="toast"></div>
+<div id="toast"></div><div id="fade"></div>
 <section class="screen on" id="menu">
   <div>
     <div class="crown" id="crown">👑</div>
@@ -97,6 +105,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
     <div class="diff" id="diff"></div>
     <div class="diff-d" id="diff-d"></div>
     <button class="btn gold" onclick="startGame()">Начать правление</button>
+    <button class="btn" onclick="startGame(true)">📅 Ежедневное правление<small>одна колода для всех на сутки</small></button>
     <div class="row2"><button class="btn" onclick="showChron()">📜 Летопись</button><button class="btn" id="ach-btn" onclick="showAch()">🏆 Достижения</button></div>
     <button class="btn" id="snd-btn" onclick="toggleSound()">Звук: вкл</button>
     <div class="vol"><span>🔈</span><input type="range" id="vol" min="0" max="100" step="1" aria-label="Громкость"><span>🔊</span></div>
@@ -120,6 +129,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
     <div class="who" id="who"></div>
     <div class="ev-t" id="et"></div>
     <div class="ev-d" id="ed"></div>
+    <div class="opts" id="opts"></div>
     <div class="swipe-hint">← свайп →</div>
   </div>
 </section>
@@ -133,7 +143,8 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
   <div class="best" id="o-king"></div>
   <div class="best" id="o-dyn"></div>
   <div class="stack">
-    <button class="btn gold" onclick="startGame()">Править заново</button>
+    <button class="btn gold" onclick="startGame(daily)">Править заново</button>
+    <button class="btn" onclick="share()">📤 Поделиться</button>
     <button class="btn" onclick="toMenu()">В меню</button>
   </div>
 </section>
@@ -217,6 +228,76 @@ const EVENTS = [
 ["🕯️","Завещание отца","Прошлый король умер своей смертью и оставил завещание. Двор ждёт его оглашения.",["Исполнить волю отца",5,10,-15,5],["Править по-своему",0,-10,10,0],"prev_age"],
 ["🕯️","Урок чрезмерности","Придворные напоминают, как слишком сильная власть одной стороны погубила прошлого короля.",["Создать совет равных",-5,5,-5,5],["Править без советов",5,-5,5,-5],"prev_hi"]
 ];
+let rng = Math.random; const rnd = () => rng();
+const mul = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const DATEKEY = new Date().toISOString().slice(0, 10), SEED = parseInt(DATEKEY.replace(/-/g, ""));
+const season = () => (year - 1) % 4, SEAS = ["🌱", "☀️", "🍂", "❄️"];
+const hasQueen = () => [0, 1, 2].some(i => did("Выбор невесты", i));
+// N(иконка, заголовок, текст, вариант1, вариант2, {chain, cond, third, season, big})
+const N = (ic, t, d, a, b, o = {}) => [ic, t, d, a, b, o.chain, o.cond, o.third, o.season, o.big];
+EVENTS.push(
+  // сезонные
+  N("🌊", "Весенний паводок", "Реки вышли из берегов и затопили поля.", ["Укрепить плотины", 0, 10, -15, 0], ["Вывести людей в замок", -5, -5, -5, 5], {season: 0}),
+  N("🌾", "Весенний сев", "Крестьянам не хватает семян для посева.", ["Раздать семена", 0, 15, -15, 0], ["Продать зерно купцам", 0, -10, 20, -5], {season: 0}),
+  N("⚔️", "Летний поход", "Генералы рвутся в поход, пока дороги сухие.", ["Выступить на соседей", 20, -10, -20, 0], ["Остаться в замке", -10, 5, 5, 0], {season: 1}),
+  N("🔥", "Летняя засуха", "Колодцы пересыхают, поля горят.", ["Копать колодцы", 0, 10, -20, 0], ["Молиться о дожде", 0, -5, 0, 20], {season: 1}),
+  N("🎉", "Ярмарка урожая", "Народ просит устроить осеннюю ярмарку.", ["Устроить праздник", 0, 15, -15, 5], ["Обложить торговцев сбором", 0, -10, 20, -5], {season: 2}),
+  N("🏹", "Осенняя охота", "Знать зовёт короля на большую охоту.", ["Устроить охоту", 5, 5, -15, 0], ["Отказаться", -5, -5, 5, 0], {season: 2}),
+  N("🌾", "Зимний голод", "Амбары пустеют, а морозы крепчают.", ["Открыть амбары", 0, 20, -20, 0], ["Закрыть ворота замка", 5, -25, 10, -5], {season: 3}),
+  N("🔥", "Зимний бунт", "Голодная толпа собралась у стен замка.", ["Разогнать силой", 10, -25, 0, -5], ["Раздать дрова и хлеб", -5, 15, -15, 5], {season: 3}),
+  N("🏥", "Зимний мор", "В тесных городах начался кашель и жар.", ["Открыть лазареты", 0, 10, -15, 5], ["Закрыть города", 5, -15, 5, -5], {season: 3}),
+  // интриги двора
+  N("📜", "Тайное письмо", "Страж перехватил письмо без подписи.", ["Вскрыть письмо", 0, 0, 5, 0, "letter"], ["Сжечь не читая", 0, 0, 0, 5]),
+  N("🕵️", "Заговор в письме", "В письме имена заговорщиков из вашего окружения.", ["Арестовать писцов", 5, -10, 0, 0], ["Подкупить заговорщиков", 0, 0, -20, 0], {chain: "letter"}),
+  N("☠️", "Отравленный кубок", "Ваш кубок на пиру оказался с ядом.", ["Казнить кравчего", 5, -10, 0, 0], ["Тихо расследовать", 0, 0, -10, 0, "poison"]),
+  N("🕵️", "Отравитель найден", "Тайное расследование нашло виновного.", ["Судить публично", 5, 10, -5, 0], ["Использовать его самому", 0, -10, 15, -10], {chain: "poison"}),
+  N("⚖️", "Ссора придворных", "Граф и барон спорят о землях перед троном.", ["Встать на сторону графа", 10, -5, 5, 0], ["Примирить обоих", 0, 5, -10, 0]),
+  N("🗡️", "Предатель среди советников", "Один из советников тайно служит соседям.", ["Изгнать его", -5, 5, 0, 0], ["Простить", 0, -10, 0, 0], {cond: () => year > 8}),
+  // соседи
+  N("🌍", "Посол соседей", "Посол привёз богатые дары и странные просьбы.", ["Принять дары", 0, 0, 15, -5], ["Отослать с позором", 10, -5, 0, 0]),
+  N("🏰", "Спор о границе", "Сосед ставит новую крепость на спорной земле.", ["Отправить войска", 15, -5, -15, 0], ["Уступить земли", -20, -5, 0, 0]),
+  N("💰", "Торговый союз", "Соседи предлагают общий рынок без пошлин.", ["Заключить союз", 0, 5, 20, -10], ["Отказаться", 5, 0, -5, 5]),
+  N("🛡", "Беженцы с востока", "У границы собрались тысячи беженцев.", ["Принять их", -5, 10, -15, 5], ["Закрыть границу", 5, -10, 5, -5]),
+  // суеверия
+  N("🕯️", "Чёрный кот на троне", "Придворные шепчутся: кот на троне предвещает беду.", ["Позвать жрицу", 0, 0, -5, 10], ["Посмеяться над слухами", 0, 5, 0, -10]),
+  N("🔥", "Ведьма в деревне", "Крестьяне хотят сжечь знахарку как ведьму.", ["Отдать на костёр", 0, -10, 0, 15], ["Защитить знахарку", 0, 10, 0, -15]),
+  N("☄️", "Знамение в небе", "Над замком три ночи светится красная звезда.", ["Объявить знаком свыше", 0, 10, 0, 10], ["Запретить слухи", 0, -10, 0, -5]),
+  N("📿", "Гадалка", "Гадалка просит аудиенции и обещает видения.", ["Выслушать", 0, 5, -10, 5], ["Прогнать", 5, -5, 0, -5]),
+  // болезни короля
+  N("🩺", "Лихорадка короля", "Вас бьёт озноб, придворные тревожно переглядываются.", ["Позвать лекаря", 0, 0, -15, 0], ["Лечиться молитвой", 0, 0, 0, 10, "fever"], {cond: () => age > 40}),
+  N("🩺", "Хворь вернулась", "Лихорадка вернулась, лекари разводят руками.", ["Сменить лекарей", 0, 0, -20, 0], ["Терпеть", -10, -5, 0, 0], {chain: "fever"}),
+  N("🩺", "Слабость в ногах", "Вам тяжело вставать с трона.", ["Отдыхать", -10, 0, 0, 5], ["Скрыть слабость от двора", 5, -10, 0, -5], {cond: () => age >= 50}),
+  // королева и дети
+  N("👸", "Выбор невесты", "Двору нужна королева. Три рода предлагают своих дочерей.", ["Гвендолин, дочь герцога", 15, 0, -5, 0, "child"], ["Изольда, дочь купца", 0, 0, 20, -5, "child"],
+    {third: ["Беренгария, племянница епископа", 0, 5, -5, 15, "child"], cond: () => year >= 3 && !hasQueen()}),
+  N("👶", "Рождение ребёнка", "В замке родился наследник. Двор ждёт вашего решения.", ["Крестины в народе", 0, 10, -10, 5], ["Скромный обряд", 0, 0, 0, 5], {chain: "child"}),
+  N("🎓", "Взросление наследника", "Принц подрос. Что делать с его воспитанием?", ["Отправить учиться", 0, 5, -10, 10], ["Взять в поход", 10, 0, -10, 0], {chain: "grow"}),
+  N("👩", "Королева просит совета", "Королева советует вам одно, а двор другое.", ["Прислушаться к королеве", 0, 5, -5, 5], ["Отмахнуться", 0, -5, 5, 0], {cond: () => hasQueen() && year > 6}),
+  // королевские решения (три варианта, раз в 12 лет)
+  N("⛪", "Религия государства", "Пришло время решить, во что верит королевство.", ["Старая вера", 0, -5, 5, 25], ["Свобода вер", 0, 15, -5, -20], {third: ["Культ короля", 5, -10, 0, -10], big: 1}),
+  N("🏰", "Судьба вассала", "Мятежный вассал ждёт вашего слова.", ["Казнить", 10, -15, 5, 0], ["Помиловать", -5, 10, 0, 5], {third: ["Женить на принцессе", 5, 0, -10, 0], big: 1}),
+  N("🏛", "Великая стройка", "Королевство готово к великому строительству.", ["Великий дворец", 5, 5, -25, 0], ["Университет", 0, 5, -15, 15], {third: ["Крепостная стена", 20, -5, -20, 0], big: 1}),
+  N("⚔️", "Война или мир", "Соседи ослабли. Пора выбрать путь для королевства.", ["Великий поход", 25, -10, -25, 0], ["Вечный мир", -15, 10, 10, 0], {third: ["Союз против соседей", 10, 0, -10, -5], big: 1}),
+);
+const DI = EVENTS.push(["💀", "Смерть", "", ["", 0, 0, 0, 0], ["", 0, 0, 0, 0], "__death"]) - 1;
+const PASSIVE = [["Религия государства", 0, 3, 3], ["Религия государства", 1, 1, 3], ["Религия государства", 2, 0, 3], ["Судьба вассала", 2, 0, 3],
+  ["Великая стройка", 0, 1, 3], ["Великая стройка", 1, 3, 3], ["Великая стройка", 2, 0, 3], ["Война или мир", 1, 2, 3], ["Война или мир", 0, 0, -3],
+  ["Выбор невесты", 0, 0, 2], ["Выбор невесты", 1, 2, 2], ["Выбор невесты", 2, 3, 2]];
+// Смерть: когда показатель на краю, иногда предлагает отсрочку за цену
+function deathOffer(k) {
+  deathUsed = true; const hi = stats[k] >= 100, n = KEYS.indexOf(k), z = DIFFS[diff].ease;
+  const o = ["Откупиться частью королевства"];
+  KEYS.forEach((x, m) => o.push(m === n ? Math.round(((hi ? 78 : 22) - stats[x]) / z) : -Math.max(0, Math.min(10, Math.floor((stats[x] - 3) / z)))));
+  EVENTS[DI] = ["💀", "Смерть предлагает сделку", `Смерть стоит у трона: «${NAMES[n]} ${hi ? "переполнена" : "иссякла"}. Я дам отсрочку, но заберу часть остальных сил.»`, o, ["Принять судьбу", 0, 0, 0, 0], "__death"];
+  cur = DI; paint(); render(); busy = false; sfx("death");
+}
+const bias = (id, n, v) => id === "morven" && n === 0 ? 1.7 : id === "edmund" && n === 2 && v < 0 ? .35 : id === "adel" && n === 3 && v > 0 ? 1.5 : id === "marta" && n === 1 && v < 0 ? .5 : 1;
+function share() {
+  const url = location.href.split("?")[0];
+  if (tg && tg.openTelegramLink) return tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(lastShare));
+  if (navigator.share) return navigator.share({text: lastShare, url}).catch(() => {});
+  try { navigator.clipboard.writeText(lastShare + " " + url); toast("Текст скопирован"); } catch (e) {}
+}
 const KEYS = ["army", "people", "treasury", "church"];
 const NAMES = ["Могущество", "Преданность", "Казна", "Церковь"], ICONS = ["🛡️", "👥", "💰", "⛪"];
 // ease — сила эффектов; help — порог, с которого колода начинает помогать; margin — запас от краёв при выборе безопасных карточек
@@ -253,7 +334,8 @@ const CHARS = {
   adel:   {n: "Аделаида", r: "верховная жрица", i: "🧕", s: 3},
   morven: {n: "Морвен", r: "генерал", i: "🧑‍✈️", s: 0},
   marta:  {n: "Марта", r: "староста", i: "👩‍🌾", s: 1},
-  herald: {n: "Гонец", r: "", i: "📯", s: null}
+  herald: {n: "Гонец", r: "", i: "📯", s: null},
+  death: {n: "Смерть", r: "", i: "💀", s: null}
 };
 const WHO = {
   morven: ["Дракон в горах", "Набег разбойников", "Пираты", "Крепостные стены", "Королевский турнир", "Набор рекрутов", "Бунт наёмников", "Оружейники", "Дракон вернулся", "Герцог поднял мятеж", "Лишние полки", "Тень предшественника"],
@@ -261,6 +343,11 @@ const WHO = {
   marta: ["Голодный год", "Эпидемия лихорадки", "Наводнение", "Стая лютоволков", "Бродячий цирк", "Суд над крестьянином", "Бунт голодных", "Жена осуждённого", "Благодарный бедняк", "Народный любимец", "Память о бунте", "Обвал в шахте"],
   edmund: ["Дипломатический брак", "Налоговая реформа", "Шпионский заговор", "Золотая жила", "Заморский купец", "Придворный живописец", "Продажа титулов", "Опальный барон", "Наследник", "Родня герцога", "Старый канцлер", "Королевский лекарь", "Юбилей правления", "Переполненная казна", "Заморское посольство", "Долги предшественника", "Завещание отца", "Урок чрезмерности"]
 };
+WHO.death = ["Смерть предлагает сделку"]; SVG.death = EV["💀"];
+WHO.morven.push("Летний поход", "Спор о границе", "Беженцы с востока", "Предатель среди советников", "Осенняя охота", "Война или мир", "Взросление наследника");
+WHO.adel.push("Чёрный кот на троне", "Ведьма в деревне", "Знамение в небе", "Гадалка", "Религия государства", "Зимний мор", "Лихорадка короля", "Хворь вернулась");
+WHO.marta.push("Ярмарка урожая", "Весенний сев", "Весенний паводок", "Зимний голод", "Зимний бунт", "Летняя засуха", "Рождение ребёнка");
+WHO.edmund.push("Тайное письмо", "Заговор в письме", "Отравленный кубок", "Отравитель найден", "Ссора придворных", "Посол соседей", "Торговый союз", "Выбор невесты", "Королева просит совета", "Судьба вассала", "Великая стройка", "Слабость в ногах");
 const charOf = e => { for (const id in WHO) if (WHO[id].includes(e[1])) return Object.assign({id}, CHARS[id]); return Object.assign({id: "herald"}, CHARS.herald); };
 let favor = {};   // отношение придворных к королю; при новом короле остывает вдвое
 const mood = id => (favor[id] || 0) >= 20 ? " 😊" : (favor[id] || 0) <= -20 ? " 😠" : "";
@@ -270,8 +357,10 @@ const KING_NAMES = ["Эдгар", "Вильгельм", "Генрих", "Кар�
 const ROMAN = ["", "", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 let kingName = "Король", tally = {army: 0, people: 0, treasury: 0, church: 0};
 function pickName() {
+  if (daily) { const b = KING_NAMES[SEED % KING_NAMES.length]; return {base: b, full: b}; }
+  const hn = store.get("king_heir", ""); if (hn) { store.set("king_heir", ""); const c0 = store.get("king_chron", []).filter(x => x.base === hn).length + 1; return {base: hn, full: hn + (c0 > 1 ? " " + (ROMAN[c0] || c0) : "")}; }
   const ch = store.get("king_chron", []), last = ch.length ? ch[ch.length - 1].base : "";
-  const pool = KING_NAMES.filter(n => n !== last), base = pool[Math.floor(Math.random() * pool.length)];
+  const pool = KING_NAMES.filter(n => n !== last), base = pool[Math.floor(rnd() * pool.length)];
   const c = ch.filter(x => x.base === base).length + 1;
   return {base, full: base + (c > 1 ? " " + (ROMAN[c] || c) : "")};
 }
@@ -311,10 +400,10 @@ const ACH = [
 const getAch = () => store.get("king_ach", []);
 function unlock(id) {
   const a = getAch(); if (a.includes(id)) return;
-  a.push(id); store.set("king_ach", a); toast("🏆 " + ACH.find(x => x[0] === id)[1]);
+  a.push(id); store.set("king_ach", a); toast("🏆 " + ACH.find(x => x[0] === id)[1]); sfx("ach");
 }
 function liveAch() {                       // проверяется каждый год, пока король жив
-  const y = year - 1;
+  const y = Math.floor((year - 1) / 4);
   if (y >= 10) unlock("decade"); if (y >= 25) unlock("quarter"); if (y >= 40) unlock("golden");
   if (age >= 80) unlock("elder");
   if (diff === "hard" && y >= 20) unlock("hard");
@@ -352,16 +441,16 @@ const DEATHS_HI = {
 const rankOf = y => y >= 50 ? "Легендарный государь" : y >= 30 ? "Великий монарх" : y >= 20 ? "Мудрый король" : y >= 10 ? "Достойный король" : y >= 5 ? "Новичок на троне" : "Короткое правление";
 const plural = n => { const a = n % 100, b = n % 10; return (a > 10 && a < 15) ? "лет" : b === 1 ? "год" : (b > 1 && b < 5) ? "года" : "лет"; };
 
-let kingBase = "", stats, year, recent = [], cur, busy = false, queue = [], age = 18, hadHeir = false, history = new Set(), seen = new Set();
+let kids = 0, deathUsed = false, daily = false, lastShare = "", heirName = "", kingBase = "", stats, year, recent = [], cur, busy = false, queue = [], age = 18, hadHeir = false, history = new Set(), seen = new Set();
 // Старость: король начинает с 18 лет, каждая карточка = 1 год. С 65 лет растёт шанс умереть, в 90 смерть неизбежна.
 const START_AGE = 18, OLD_FROM = 65, MAX_AGE = 90;
 const did = (title, i) => history.has(title + ":" + i);
 const metaTot = () => store.get("king_total", 0);
 const dynRank = t => t >= 250 ? "Великая династия" : t >= 100 ? "Известная династия" : t >= 30 ? "Растущая династия" : "Молодая династия";
-const oldAgeDeath = () => age >= MAX_AGE || (age >= OLD_FROM && Math.random() < (age - OLD_FROM + 1) * .03 * (did("Королевский лекарь", 0) ? .7 : 1));
+const oldAgeDeath = () => age >= MAX_AGE || (age >= OLD_FROM && rnd() < (age - OLD_FROM + 1) * .03 * (did("Королевский лекарь", 0) ? .7 : 1));
 
 function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); }
-function toMenu() { const b = bestOf(); $("ach-btn").textContent = `🏆 Достижения ${getAch().length}/${ACH.length}`; $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") + (metaTot() ? ` · ${dynRank(metaTot())}` : "") : ""; show("menu"); }
+function toMenu() { delete document.body.dataset.s; diff = store.get("king_diff", "normal"); if (!DIFFS[diff]) diff = "normal"; drawDiff(); const b = bestOf(); $("ach-btn").textContent = `🏆 Достижения ${getAch().length}/${ACH.length}`; $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") + (metaTot() ? ` · ${dynRank(metaTot())}` : "") : ""; show("menu"); }
 function draw() {
   // Колода помогает: когда показатель у края (низ или верх), не выпадают карточки, где оба ответа бьют в ту же сторону,
   // всегда есть ответ без вылета, а карточки с «разгрузкой» выпадают чаще. Сила помощи зависит от сложности.
@@ -373,13 +462,14 @@ function draw() {
   const safe = e => [e[3], e[4]].some(o => KEYS.every((k, n) => { const v = stats[k] + Math.round(o[n + 1] * D.ease); return v > D.margin && v < 100 - D.margin; }));
   const qi = queue.findIndex(q => q.at <= year);
   if (qi >= 0) { const q = queue.splice(qi, 1)[0], i = EVENTS.findIndex(e => e[5] === q.k); if (q.k === "heir") hadHeir = true; recent.push(i); if (recent.length > 6) recent.shift(); return i; }
-  let pool = EVENTS.map((e, i) => i).filter(i => !recent.includes(i) && !EVENTS[i][5] && (!EVENTS[i][6] || (!seen.has(EVENTS[i][1]) && EVENTS[i][6]())));
+  if (year > 1 && (year - 1) % 12 === 0) { const bg = EVENTS.map((e, i) => i).filter(i => EVENTS[i][9] && !seen.has(EVENTS[i][1])); if (bg.length) { const p = bg[Math.floor(rnd() * bg.length)]; seen.add(EVENTS[p][1]); recent.push(p); return p; } }
+  let pool = EVENTS.map((e, i) => i).filter(i => !recent.includes(i) && !EVENTS[i][5] && !EVENTS[i][9] && (EVENTS[i][8] === undefined || EVENTS[i][8] === season()) && (!EVENTS[i][6] || (!seen.has(EVENTS[i][1]) && EVENTS[i][6]())));
   const narrow = f => { const r = pool.filter(f); if (r.length) pool = r; };
   narrow(i => safe(EVENTS[i]));
   if (low.length || high.length) narrow(i => low.every(([k, n]) => gain(EVENTS[i], n) >= 0) && high.every(([k, n]) => drop(EVENTS[i], n) <= 0));
-  const w = i => (EVENTS[i][6] ? 2 : 1) + low.reduce((sum, [k, n]) => { const g = gain(EVENTS[i], n); return sum + (g >= 15 ? (stats[k] <= D.help * .8 ? 10 : 5) : g > 0 ? 1 : 0); }, 0)
+  const w = i => (EVENTS[i][6] ? 2 : 1) + (EVENTS[i][8] === season() ? 3 : 0) + low.reduce((sum, [k, n]) => { const g = gain(EVENTS[i], n); return sum + (g >= 15 ? (stats[k] <= D.help * .8 ? 10 : 5) : g > 0 ? 1 : 0); }, 0)
                    + high.reduce((sum, [k, n]) => { const g = drop(EVENTS[i], n); return sum + (g <= -15 ? (stats[k] >= 100 - D.help * .8 ? 10 : 5) : g < 0 ? 1 : 0); }, 0);
-  let r = Math.random() * pool.reduce((a, i) => a + w(i), 0), pick = pool[pool.length - 1];
+  let r = rnd() * pool.reduce((a, i) => a + w(i), 0), pick = pool[pool.length - 1];
   for (const i of pool) { r -= w(i); if (r <= 0) { pick = i; break; } }
   if (EVENTS[pick][6]) seen.add(EVENTS[pick][1]);
   recent.push(pick); if (recent.length > 6) recent.shift();
@@ -387,73 +477,81 @@ function draw() {
 }
 function paint() {
   KEYS.forEach(k => { const f = $("f-" + k); f.style.width = stats[k] + "%"; f.classList.toggle("low", stats[k] <= 20 || stats[k] >= 80); });
-  $("year").textContent = `${kingName} · ${age} ${plural(age)} · Год ${year}`;
+  document.body.dataset.s = season(); $("year").textContent = `${SEAS[season()]} ${kingName} · ${age} ${plural(age)} · Год ${Math.floor((year - 1) / 4) + 1}`;
 }
 function render() {
   const e = EVENTS[cur];
   $("av").innerHTML = ev(e[0]); const ch = charOf(e); $("who").innerHTML = `<span class="pt">${SVG[ch.id] || ""}</span><span>${ch.n}${ch.r ? ", " + ch.r : ""}${mood(ch.id)}</span>`;
-  $("et").textContent = (e[5] ? "⛓ " : "") + e[1]; $("ed").textContent = e[2];
+  $("et").textContent = (e[5] && e[5] !== "__death" ? "⛓ " : "") + e[1]; $("ed").textContent = e[2];
+  $("opts").style.display = e[7] ? "flex" : "none"; document.querySelector(".swipe-hint").style.display = e[7] ? "none" : "";
+  $("opts").innerHTML = e[7] ? [e[3], e[4], e[7]].map((o, i) => `<button class="btn" onclick="fly(${i})">${o[0]}</button>`).join("") : "";
   const c = $("card"); c.style.transition = c.style.transform = c.style.opacity = ""; c.classList.remove("in"); void c.offsetWidth; c.classList.add("in");
 }
-function startGame() {
+function startGame(d) {
+  daily = !!d === true && d !== undefined; rng = daily ? mul(SEED) : Math.random;
+  diff = daily ? "normal" : store.get("king_diff", "normal"); if (!DIFFS[diff]) diff = "normal"; kids = 0; deathUsed = false; heirName = "";
   stats = {army: 50, people: 50, treasury: 50, church: 50}; year = 1; age = START_AGE; hadHeir = false; history = new Set(); seen = new Set(); queue = []; busy = false; recent = [];
   const nm = pickName(); kingName = nm.full; kingBase = nm.base; tally = {army: 0, people: 0, treasury: 0, church: 0};
-  const fv = store.get("king_favor", {}); favor = {}; Object.keys(CHARS).forEach(id => favor[id] = Math.round((fv[id] || 0) / 2));
-  const prev = store.get("king_prev", null); if (prev) queue.push({k: "prev_" + prev, at: 2 + Math.floor(Math.random() * 3)});
+  const fv = store.get("king_favor", {}); favor = {}; Object.keys(CHARS).forEach(id => favor[id] = daily ? 0 : Math.round((fv[id] || 0) / 2));
+  const prev = store.get("king_prev", null); if (prev && !daily) queue.push({k: "prev_" + prev, at: 2 + Math.floor(rnd() * 3)});
   cur = draw(); paint(); render(); show("game"); sfx("start");
   if (!store.get("king_tut", false)) { store.set("king_tut", true); toast("Свайпай карточку: чем ярче значок, тем сильнее эффект"); }
 }
 function choose(i) {
   if (busy) return; busy = true;
-  const o = EVENTS[cur][3 + i]; history.add(EVENTS[cur][1] + ":" + i);
+  const E = EVENTS[cur], o = i === 2 ? E[7] : E[3 + i]; history.add(EVENTS[cur][1] + ":" + i);
   KEYS.forEach((k, n) => tally[k] += o[n + 1]);
-  const who = charOf(EVENTS[cur]); if (who.s !== null) { favor[who.id] = Math.max(-100, Math.min(100, (favor[who.id] || 0) + o[who.s + 1])); store.set("king_favor", favor); }
-  if (o[5]) queue.push({k: o[5], at: year + 2 + Math.floor(Math.random() * 3)});
+  const who = charOf(EVENTS[cur]); if (who.s !== null) { favor[who.id] = Math.max(-100, Math.min(100, (favor[who.id] || 0) + o[who.s + 1])); if (!daily) store.set("king_favor", favor); }
+  if (E[5] === "child") { kids++; hadHeir = true; heirName = KING_NAMES[Math.floor(rnd() * KING_NAMES.length)]; toast("👶 Родился принц " + heirName); if (kids === 1) queue.push({k: "grow", at: year + 40}); if (kids < 3) queue.push({k: "child", at: year + 16 + Math.floor(rnd() * 8)}); }
+  if (o[5]) queue.push({k: o[5], at: year + 2 + Math.floor(rnd() * 3)});
   KEYS.forEach((k, n) => {
     const d = Math.round(o[n + 1] * DIFFS[diff].ease); if (!d) return;
     stats[k] = Math.max(0, Math.min(100, stats[k] + d));
     const el = $("s-" + k);
-    const cl = d > 0 ? "up" : "down"; el.classList.add(cl); setTimeout(() => el.classList.remove(cl), 600);
+    const cl = d > 0 ? "up" : "down"; el.classList.add(cl); if (Math.abs(d) >= 20) el.classList.add("shake"); setTimeout(() => el.classList.remove(cl, "shake"), 600);
   });
-  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
-  sfx("tap"); year++; age++; paint();
+  const mx = Math.max(...o.slice(1, 5).map(Math.abs)) * DIFFS[diff].ease;
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(mx >= 25 ? "heavy" : mx >= 15 ? "medium" : "light");
+  sfx(i === 0 ? "swipeR" : i === 1 ? "swipeL" : "tap"); year++; const ny = (year - 1) % 4 === 0; if (ny) age++; paint();
   setTimeout(() => {
     const dead = KEYS.find(k => stats[k] <= 0 || stats[k] >= 100);
-    if (dead) return gameOver(dead);
-    if (oldAgeDeath()) return gameOver("age");
+    if (dead) { if (!deathUsed && rnd() < .6) return deathOffer(dead); return gameOver(dead); }
+    if (ny && oldAgeDeath()) return gameOver("age");
     liveAch();
-    if (age === OLD_FROM) toast("🕯️ Вам уже " + age + ". Здоровье начинает подводить…");
-    if (age === 75) toast("🕯️ " + age + " лет. Каждый год может стать последним.");
-    if (DIFFS[diff].bonus && (year - 1) % 8 === 0) {
+    if (year % 6 === 0) PASSIVE.forEach(([t, i, n, dl]) => { if (did(t, i)) stats[KEYS[n]] = Math.max(1, Math.min(99, stats[KEYS[n]] + dl)); });
+    if (ny && age === OLD_FROM) toast("🕯️ Вам уже " + age + ". Здоровье начинает подводить…");
+    if (ny && age === 75) toast("🕯️ " + age + " лет. Каждый год может стать последним.");
+    if (DIFFS[diff].bonus && ny && (year - 1) % 32 === 0) {
       const n = KEYS.reduce((m, k, i) => stats[k] < stats[KEYS[m]] ? i : m, 0);
-      stats[KEYS[n]] = Math.min(99, stats[KEYS[n]] + 5); toast(`🎉 ${year - 1} лет у власти! ${ICONS[n]} ${NAMES[n]} +5`);
+      stats[KEYS[n]] = Math.min(99, stats[KEYS[n]] + 5); toast(`🎉 ${(year - 1) / 4} лет у власти! ${ICONS[n]} ${NAMES[n]} +5`);
     }
     paint();
     cur = draw(); render(); busy = false;
   }, 450);
 }
 function gameOver(k) {
-  const years = year - 1, best = bestOf();
+  const years = Math.floor((year - 1) / 4), best = bestOf();
   const kn = store.get("king_n", 1), tot = store.get("king_total", 0) + years; const was = tot - years; store.set("king_n", kn + 1); store.set("king_total", tot);
-  store.set("king_prev", k === "age" ? "age" : stats[k] >= 100 ? "hi" : k);
+  store.set("king_prev", k === "age" ? "age" : stats[k] >= 100 ? "hi" : k); if (k === "age" && kids > 0 && !daily) store.set("king_heir", heirName);
   const endKey = k === "age" ? "age" : stats[k] >= 100 ? k + "_hi" : k;
   const ends = store.get("king_ends", []); if (!ends.includes(endKey)) { ends.push(endKey); store.set("king_ends", ends); }
   const ep = epithet(years, k === "age");
   const chron = store.get("king_chron", []);
   chron.push({n: kn, name: kingName, base: kingBase, ep, years, age, cause: CAUSE[endKey], diff: DIFFS[diff].name}); store.set("king_chron", chron.slice(-30));
-  $("o-king").textContent = `${kingName} ${ep} · №${kn}`;
+  $("o-king").textContent = `${kingName} ${ep} · №${kn}`; lastShare = `👑 ${kingName} ${ep} правил ${years} ${plural(years)}` + (daily ? " в ежедневном испытании" : "") + ". Сможешь лучше?";
   unlock("first"); if (k === "age") unlock("natural"); if (ends.length >= 9) unlock("ends"); if (kn >= 10) unlock("kings10"); if (tot >= 100) unlock("dyn100");
   const unlocked = [[40, "Заморское посольство"], [100, "Комета над столицей"]].filter(([t]) => was < t && tot >= t).map(([t, n]) => n);
   $("o-dyn").textContent = `Всего за династию: ${tot} ${plural(tot)} · ${dynRank(tot)}` + (unlocked.length ? ` · 📜 Новое событие: ${unlocked.join(", ")}` : "");
   const old = k === "age";
-  const D = old ? [hadHeir ? "👑" : "⚰️", `Король скончался в ${age} ${plural(age)} своей смертью. ` + (hadHeir ? "Трон переходит к наследнику." : "Наследника нет, трон достанется дальнему родичу.")] : (stats[k] >= 100 ? DEATHS_HI : DEATHS)[k];
+  const D = old ? [hadHeir ? "👑" : "⚰️", `Король скончался в ${age} ${plural(age)} своей смертью. ` + (kids > 0 ? "Трон переходит к принцу " + heirName + "." : hadHeir ? "Трон переходит к наследнику." : "Наследника нет, трон достанется дальнему родичу.")] : (stats[k] >= 100 ? DEATHS_HI : DEATHS)[k];
   $("o-ic").innerHTML = ev(D[0]); $("o-r").textContent = D[1];
   $("o-t").textContent = old ? "Король почил" : "Королевство пало"; $("o-t").style.color = old ? "var(--gold)" : "";
   $("o-y").textContent = `${years} ${plural(years)}`; $("o-rank").textContent = rankOf(years) + " · " + DIFFS[diff].name;
-  $("o-new").textContent = years > best ? "Новый рекорд!" : "";
-  if (years > best) store.set("king_best_" + diff, years);
-  show("over"); sfx("lose");
+  if (daily) { const dd = store.get("king_daily", {}), db = dd.date === DATEKEY ? dd.best : 0; $("o-new").textContent = "📅 Ежедневное правление" + (years > db ? " · лучший счёт за сегодня!" : ` · лучший за сегодня: ${db}`); if (years > db) store.set("king_daily", {date: DATEKEY, best: years}); }
+  else { $("o-new").textContent = years > best ? "Новый рекорд!" : ""; if (years > best) store.set("king_best_" + diff, years); }
+  $("fade").style.opacity = .9; sfx(old ? "old" : "lose");
   if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(old ? "success" : "error");
+  setTimeout(() => { show("over"); $("fade").style.opacity = 0; }, 800);
 }
 
 /* ---------- музыка и звуки (WebAudio, без файлов) ---------- */
@@ -485,7 +583,7 @@ function pluck(f, v) {
 }
 function sfx(type) {
   if (!ac || !soundOn) return;
-  const seq = {tap: [[523, 0]], start: [[392, 0], [523, .12], [659, .24]], lose: [[392, 0], [330, .25], [262, .5], [196, .75]]}[type];
+  const seq = {tap: [[523, 0]], start: [[392, 0], [523, .12], [659, .24]], lose: [[392, 0], [330, .25], [262, .5], [196, .75]], swipeR: [[587, 0], [698, .06]], swipeL: [[440, 0], [392, .06]], ach: [[659, 0], [784, .1], [988, .2]], old: [[392, 0], [330, .3], [294, .6]], death: [[196, 0], [185, .3], [165, .6]]}[type];
   seq.forEach(([f, d]) => setTimeout(() => pluck(f, .22), d * 1000));
 }
 function toggleSound() {
@@ -505,12 +603,12 @@ document.addEventListener("visibilitychange", () => { if (ac) document.hidden ? 
 /* ---------- свайп карточки (как в Reigns): вправо = верхний вариант, влево = нижний ---------- */
 const card = $("card"); let drag = null, dx = 0;
 function swPaint(d) {
-  const sw = $("sw"), o = EVENTS[cur][d > 0 ? 3 : 4], on = Math.abs(d) > 20;
+  const sw = $("sw"), o = EVENTS[cur][d > 0 ? 3 : 4], on = Math.abs(d) > 20, cid = charOf(EVENTS[cur]).id;
   sw.textContent = on ? o[0] : ""; sw.style.opacity = Math.min(1, Math.abs(d) / 90); sw.style.textAlign = d > 0 ? "right" : "left";
   // сила эффекта = яркость подсветки; знак (плюс/минус) игроку не показываем
   const f = Math.min(1, Math.abs(d) / 90);
   KEYS.forEach((k, n) => {
-    const el = $("s-" + k), m = Math.abs(o[n + 1]) * DIFFS[diff].ease;
+    const el = $("s-" + k), m = Math.abs(o[n + 1]) * DIFFS[diff].ease * bias(cid, n, o[n + 1]);
     if (!on || !m) { el.style.boxShadow = el.style.background = el.style.borderColor = el.style.transform = ""; return; }
     const h = Math.min(1, .2 + .8 * m / 40) * f;
     el.style.borderColor = `rgba(217,178,106,${.25 + .75 * h})`;
@@ -519,7 +617,7 @@ function swPaint(d) {
     el.style.transform = `scale(${1 + h * .08})`;
   });
 }
-card.addEventListener("pointerdown", e => { if (busy) return; drag = e.clientX; dx = 0; card.setPointerCapture(e.pointerId); card.style.transition = "none"; });
+card.addEventListener("pointerdown", e => { if (busy || EVENTS[cur][7]) return; drag = e.clientX; dx = 0; card.setPointerCapture(e.pointerId); card.style.transition = "none"; });
 card.addEventListener("pointermove", e => { if (drag === null) return; dx = e.clientX - drag; card.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`; swPaint(dx); });
 function endDrag() {
   if (drag === null) return; drag = null; card.style.transition = "transform .25s,opacity .25s"; const d = dx; swPaint(0); dx = 0;
@@ -527,15 +625,20 @@ function endDrag() {
   else card.style.transform = "";
 }
 function fly(i) {
-  if (busy) return; const s = i === 0 ? 1 : -1;
-  card.style.transition = "transform .25s,opacity .25s"; card.style.transform = `translateX(${s * 480}px) rotate(${s * 25}deg)`; card.style.opacity = 0; choose(i);
+  if (busy) return; const s = i === 0 ? 1 : i === 1 ? -1 : 0;
+  card.style.transition = "transform .25s,opacity .25s"; card.style.transform = `translateX(${s * 480}px) rotate(${s * 25}deg) translateY(${s ? 0 : 60}px)`; card.style.opacity = 0; choose(i);
 }
 document.addEventListener("keydown", e => {
   if (!$("game").classList.contains("on")) return;
-  if (e.key === "ArrowRight") fly(0); else if (e.key === "ArrowLeft") fly(1);
+  if (e.key === "ArrowRight") fly(0); else if (e.key === "ArrowLeft") fly(1); else if (e.key === "ArrowDown" && EVENTS[cur][7]) fly(2);
 });
 card.addEventListener("pointerup", endDrag); card.addEventListener("pointercancel", endDrag);
 
+// одноразовый сброс рекордов после перехода на «4 карточки = 1 год»
+if (store.get("king_ver", 0) < 3) {
+  ["king_best", "king_best_easy", "king_best_normal", "king_best_hard", "king_daily", "king_total", "king_n", "king_chron", "king_prev", "king_heir", "king_favor", "king_ach", "king_ends"].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  store.set("king_ver", 3);
+}
 drawSnd(); drawDiff(); toMenu();
 </script>
 </body>
