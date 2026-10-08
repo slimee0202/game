@@ -66,7 +66,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 @media(max-height:640px){.avatar{font-size:3.2rem}.avatar svg{width:72px;height:72px}.ev-d{font-size:1rem}}
 .btn small{display:block;font-size:.85rem;font-weight:400;opacity:.75;margin-top:3px}
 .card{position:relative;touch-action:none}
-#sw{position:absolute;top:12px;left:16px;right:16px;font-size:1.15rem;font-weight:700;color:var(--gold);opacity:0;pointer-events:none;text-shadow:0 2px 6px #000}
+#sw{min-height:2.6em;display:flex;align-items:center;padding:0 6px;margin-bottom:8px;font-size:1.15rem;line-height:1.2;font-weight:700;color:var(--gold);opacity:0;pointer-events:none}
 .stat{transition:box-shadow .12s,background .12s,border-color .12s}
 .diff{display:flex;gap:8px}
 .diff button{flex:1;padding:10px 4px;border-radius:10px;font-size:.95rem;font-weight:700;background:var(--velvet2);color:var(--parch);border:1px solid rgba(217,178,106,.25)}
@@ -129,8 +129,8 @@ body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-
     <span id="year">Год 1</span>
     <button class="icon-btn" onclick="toMenu()" aria-label="В меню">☰</button>
   </div>
+  <div id="sw"></div>
   <div class="card" id="card">
-    <div id="sw"></div>
     <div class="avatar" id="av"></div>
     <div class="who" id="who"></div>
     <div class="ev-t" id="et"></div>
@@ -626,7 +626,7 @@ document.addEventListener("visibilitychange", () => { if (ac) document.hidden ? 
 const card = $("card"); let drag = null, dx = 0;
 function swPaint(d) {
   const sw = $("sw"), o = EVENTS[cur][d > 0 ? 3 : 4], on = Math.abs(d) > 20, cid = charOf(EVENTS[cur]).id;
-  sw.textContent = on ? o[0] : ""; sw.style.opacity = Math.min(1, Math.abs(d) / 90); sw.style.textAlign = d > 0 ? "right" : "left";
+  sw.textContent = on ? (d > 0 ? o[0] + "  →" : "←  " + o[0]) : ""; sw.style.opacity = Math.min(1, Math.abs(d) / 60); sw.style.justifyContent = d > 0 ? "flex-end" : "flex-start"; sw.style.textAlign = d > 0 ? "right" : "left";
   // сила эффекта = яркость подсветки; знак (плюс/минус) игроку не показываем
   const f = Math.min(1, Math.abs(d) / 90);
   KEYS.forEach((k, n) => {
