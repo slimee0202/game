@@ -21,7 +21,7 @@ button{font-family:inherit;cursor:pointer;border:0}
 .stack{display:flex;flex-direction:column;gap:12px}
 
 /* меню */
-#menu{justify-content:center;text-align:center;gap:34px}
+#menu{justify-content:center;text-align:center;gap:24px}
 .crown{font-size:5.5rem;filter:drop-shadow(0 0 28px rgba(217,178,106,.55));animation:bob 4s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(-8px)}}
 h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
@@ -69,6 +69,12 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 .diff button{flex:1;padding:10px 4px;border-radius:10px;font-size:.95rem;font-weight:700;background:var(--velvet2);color:var(--parch);border:1px solid rgba(217,178,106,.25)}
 .diff button.on{background:linear-gradient(180deg,#e6c47f,#c79a4b);color:#2a1a08;border-color:#f0d9a0}
 .diff-d{color:var(--muted);font-size:.9rem;min-height:2.4em;text-align:center}
+.who{color:var(--gold);font-size:.95rem;min-height:1.3em;text-align:center;opacity:.95;margin-bottom:2px}
+.row2{display:flex;gap:10px}.row2 .btn{flex:1;padding:12px 6px;font-size:1rem}
+.scr-h{font-size:1.8rem;color:var(--gold);text-align:center;margin-bottom:6px}
+.list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px 12px}
+.item{background:rgba(0,0,0,.28);border:1px solid rgba(217,178,106,.25);border-radius:12px;padding:10px 12px;text-align:left}
+.item b{color:var(--gold)}.item small{display:block;color:var(--muted);margin-top:2px;font-size:.92rem}.item.lock{opacity:.45}
 #toast{position:fixed;top:14px;left:50%;transform:translate(-50%,-90px);background:var(--gold);color:#2a1a08;padding:10px 16px;border-radius:12px;font-weight:700;max-width:90%;text-align:center;transition:transform .35s;z-index:9}
 #toast.on{transform:translate(-50%,0)}
 </style>
@@ -87,6 +93,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
     <div class="diff" id="diff"></div>
     <div class="diff-d" id="diff-d"></div>
     <button class="btn gold" onclick="startGame()">Начать правление</button>
+    <div class="row2"><button class="btn" onclick="showChron()">📜 Летопись</button><button class="btn" id="ach-btn" onclick="showAch()">🏆 Достижения</button></div>
     <button class="btn" id="snd-btn" onclick="toggleSound()">Звук: вкл</button>
     <div class="vol"><span>🔈</span><input type="range" id="vol" min="0" max="100" step="1" aria-label="Громкость"><span>🔊</span></div>
   </div>
@@ -106,6 +113,7 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
   <div class="card" id="card">
     <div id="sw"></div>
     <div class="avatar" id="av"></div>
+    <div class="who" id="who"></div>
     <div class="ev-t" id="et"></div>
     <div class="ev-d" id="ed"></div>
     <div class="swipe-hint">← свайп →</div>
@@ -118,11 +126,25 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
   <p id="o-r" style="color:var(--muted);font-size:1.1rem"></p>
   <div><div class="big" id="o-y">0</div><div class="rank" id="o-rank"></div></div>
   <div class="best" id="o-new"></div>
+  <div class="best" id="o-king"></div>
   <div class="best" id="o-dyn"></div>
   <div class="stack">
     <button class="btn gold" onclick="startGame()">Править заново</button>
     <button class="btn" onclick="toMenu()">В меню</button>
   </div>
+</section>
+
+<section class="screen" id="chron">
+  <div class="scr-h">📜 Летопись королей</div>
+  <div class="list" id="chron-l"></div>
+  <button class="btn" onclick="toMenu()">Назад</button>
+</section>
+
+<section class="screen" id="ach">
+  <div class="scr-h">🏆 Достижения</div>
+  <div class="best" id="ach-c" style="text-align:center"></div>
+  <div class="list" id="ach-l"></div>
+  <button class="btn" onclick="toMenu()">Назад</button>
 </section>
 
 <script>
@@ -206,7 +228,104 @@ function drawDiff() {
   $("diff-d").textContent = DIFFS[diff].desc;
 }
 function setDiff(k) { diff = k; store.set("king_diff", k); drawDiff(); toMenu(); }
-function toast(t) { const e = $("toast"); e.textContent = t; e.classList.add("on"); setTimeout(() => e.classList.remove("on"), 2400); }
+let tq = [], tb = false;
+function toast(t) { tq.push(t); if (!tb) nextToast(); }
+function nextToast() {
+  if (!tq.length) { tb = false; return; } tb = true;
+  const e = $("toast"); e.textContent = tq.shift(); e.classList.add("on");
+  setTimeout(() => { e.classList.remove("on"); setTimeout(nextToast, 380); }, 2300);
+}
+/* ---------- двор: у карточек есть говорящие, они помнят твои решения ---------- */
+// s = индекс «их» показателя в KEYS (армия 0, народ 1, казна 2, церковь 3)
+const CHARS = {
+  edmund: {n: "Эдмунд", r: "канцлер", i: "🧔", s: 2},
+  adel:   {n: "Аделаида", r: "верховная жрица", i: "🧕", s: 3},
+  morven: {n: "Морвен", r: "генерал", i: "🧑‍✈️", s: 0},
+  marta:  {n: "Марта", r: "староста", i: "👩‍🌾", s: 1},
+  herald: {n: "Гонец", r: "", i: "📯", s: null}
+};
+const WHO = {
+  morven: ["Дракон в горах", "Набег разбойников", "Пираты", "Крепостные стены", "Королевский турнир", "Набор рекрутов", "Бунт наёмников", "Оружейники", "Дракон вернулся", "Герцог поднял мятеж", "Лишние полки", "Тень предшественника"],
+  adel: ["Верховный жрец", "Церковный раскол", "Власть церкви", "Чума в столице", "Проклятие предшественника", "Комета над столицей", "Королевский университет"],
+  marta: ["Голодный год", "Эпидемия лихорадки", "Наводнение", "Стая лютоволков", "Бродячий цирк", "Суд над крестьянином", "Бунт голодных", "Жена осуждённого", "Благодарный бедняк", "Народный любимец", "Память о бунте", "Обвал в шахте"],
+  edmund: ["Дипломатический брак", "Налоговая реформа", "Шпионский заговор", "Золотая жила", "Заморский купец", "Придворный живописец", "Продажа титулов", "Опальный барон", "Наследник", "Родня герцога", "Старый канцлер", "Королевский лекарь", "Юбилей правления", "Переполненная казна", "Заморское посольство", "Долги предшественника", "Завещание отца", "Урок чрезмерности"]
+};
+const charOf = e => { for (const id in WHO) if (WHO[id].includes(e[1])) return Object.assign({id}, CHARS[id]); return Object.assign({id: "herald"}, CHARS.herald); };
+let favor = {};   // отношение придворных к королю; при новом короле остывает вдвое
+const mood = id => (favor[id] || 0) >= 20 ? " 😊" : (favor[id] || 0) <= -20 ? " 😠" : "";
+
+/* ---------- имена и титулы королей ---------- */
+const KING_NAMES = ["Эдгар", "Вильгельм", "Генрих", "Карл", "Ричард", "Освальд", "Альфред", "Бальдур", "Леопольд", "Теодор", "Эрик", "Гарольд", "Ульрих", "Конрад", "Фридрих", "Артур", "Роланд", "Эдвин", "Годфрид", "Мориц", "Гуго", "Людвиг", "Оттон", "Бернард", "Сигмунд", "Станислав", "Казимир", "Владислав", "Матиас", "Дагоберт"];
+const ROMAN = ["", "", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+let kingName = "Король", tally = {army: 0, people: 0, treasury: 0, church: 0};
+function pickName() {
+  const ch = store.get("king_chron", []), last = ch.length ? ch[ch.length - 1].base : "";
+  const pool = KING_NAMES.filter(n => n !== last), base = pool[Math.floor(Math.random() * pool.length)];
+  const c = ch.filter(x => x.base === base).length + 1;
+  return {base, full: base + (c > 1 ? " " + (ROMAN[c] || c) : "")};
+}
+const EPI_POS = {army: "Воинственный", people: "Милосердный", treasury: "Богатый", church: "Набожный"};
+const EPI_NEG = {army: "Миролюбивый", people: "Суровый", treasury: "Расточительный", church: "Безбожный"};
+function epithet(years, old) {
+  if (years < 5) return "Недолгий";
+  if (old && years >= 50) return "Великий";
+  const k = KEYS.reduce((m, x) => Math.abs(tally[x]) > Math.abs(tally[m]) ? x : m, KEYS[0]);
+  if (Math.abs(tally[k]) < 15) return "Справедливый";
+  return tally[k] > 0 ? EPI_POS[k] : EPI_NEG[k];
+}
+const CAUSE = {
+  army: "армия пала", people: "народ восстал", treasury: "казна опустела", church: "церковь отвернулась",
+  army_hi: "власть захватили генералы", people_hi: "отравлен знатью", treasury_hi: "казну разграбили", church_hi: "трон занял жрец",
+  age: "умер от старости"
+};
+
+/* ---------- достижения ---------- */
+const ACH = [
+  ["first", "Первое правление", "Завершить своё первое правление"],
+  ["decade", "Десятилетие", "Править 10 лет"],
+  ["quarter", "Четверть века", "Править 25 лет"],
+  ["golden", "Золотой век", "Править 40 лет"],
+  ["elder", "Мудрый старец", "Дожить до 80 лет"],
+  ["natural", "Смерть в своей постели", "Умереть от старости"],
+  ["hard", "Железный король", "Править 20 лет на Тяжёлом уровне"],
+  ["balance", "Идеальный баланс", "На 30-м году правления держать все показатели от 40 до 60"],
+  ["army90", "Железная рука", "Довести Могущество до 90 и удержать трон"],
+  ["people90", "Народный герой", "Довести Преданность до 90 и удержать трон"],
+  ["gold90", "Золотой запас", "Довести Казну до 90 и удержать трон"],
+  ["church90", "Святой король", "Довести Церковь до 90 и удержать трон"],
+  ["ends", "Все концовки", "Увидеть все 9 концовок"],
+  ["kings10", "Десять королей", "Сменить десять королей в династии"],
+  ["dyn100", "Известная династия", "Набрать 100 лет правления за всю династию"]
+];
+const getAch = () => store.get("king_ach", []);
+function unlock(id) {
+  const a = getAch(); if (a.includes(id)) return;
+  a.push(id); store.set("king_ach", a); toast("🏆 " + ACH.find(x => x[0] === id)[1]);
+}
+function liveAch() {                       // проверяется каждый год, пока король жив
+  const y = year - 1;
+  if (y >= 10) unlock("decade"); if (y >= 25) unlock("quarter"); if (y >= 40) unlock("golden");
+  if (age >= 80) unlock("elder");
+  if (diff === "hard" && y >= 20) unlock("hard");
+  if (y === 30 && KEYS.every(k => stats[k] >= 40 && stats[k] <= 60)) unlock("balance");
+  [["army", "army90"], ["people", "people90"], ["treasury", "gold90"], ["church", "church90"]].forEach(([k, id]) => { if (stats[k] >= 90) unlock(id); });
+}
+function showAch() {
+  const a = getAch();
+  $("ach-c").textContent = `Открыто: ${a.length} из ${ACH.length}`;
+  $("ach-l").innerHTML = ACH.map(([id, n, d]) => {
+    const got = a.includes(id), extra = id === "ends" ? ` (${store.get("king_ends", []).length}/9)` : "";
+    return `<div class="item${got ? "" : " lock"}"><b>${got ? "🏆" : "🔒"} ${n}</b><small>${d}${extra}</small></div>`;
+  }).join("");
+  show("ach");
+}
+function showChron() {
+  const ch = store.get("king_chron", []);
+  $("chron-l").innerHTML = ch.length ? ch.slice().reverse().map(c =>
+    `<div class="item"><b>${c.name} ${c.ep}</b><small>№${c.n} · ${c.years} ${plural(c.years)} правления · умер в ${c.age} ${plural(c.age)} · ${c.cause} · ${c.diff}</small></div>`
+  ).join("") : `<div class="item"><small>Здесь появятся все короли твоей династии.</small></div>`;
+  show("chron");
+}
 const DEATHS = {
   church: ["✝️", "Церковь прокляла вас, паства отвернулась. Вас низложили как еретика."],
   army: ["⚔️", "Армия разбита, враги взяли столицу. Трон потерян."],
@@ -222,7 +341,7 @@ const DEATHS_HI = {
 const rankOf = y => y >= 50 ? "Легендарный государь" : y >= 30 ? "Великий монарх" : y >= 20 ? "Мудрый король" : y >= 10 ? "Достойный король" : y >= 5 ? "Новичок на троне" : "Короткое правление";
 const plural = n => { const a = n % 100, b = n % 10; return (a > 10 && a < 15) ? "лет" : b === 1 ? "год" : (b > 1 && b < 5) ? "года" : "лет"; };
 
-let stats, year, recent = [], cur, busy = false, queue = [], age = 18, hadHeir = false, history = new Set(), seen = new Set();
+let kingBase = "", stats, year, recent = [], cur, busy = false, queue = [], age = 18, hadHeir = false, history = new Set(), seen = new Set();
 // Старость: король начинает с 18 лет, каждая карточка = 1 год. С 65 лет растёт шанс умереть, в 90 смерть неизбежна.
 const START_AGE = 18, OLD_FROM = 65, MAX_AGE = 90;
 const did = (title, i) => history.has(title + ":" + i);
@@ -231,7 +350,7 @@ const dynRank = t => t >= 250 ? "Великая династия" : t >= 100 ? "
 const oldAgeDeath = () => age >= MAX_AGE || (age >= OLD_FROM && Math.random() < (age - OLD_FROM + 1) * .03 * (did("Королевский лекарь", 0) ? .7 : 1));
 
 function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); }
-function toMenu() { const b = bestOf(); $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") + (metaTot() ? ` · ${dynRank(metaTot())}` : "") : ""; show("menu"); }
+function toMenu() { const b = bestOf(); $("ach-btn").textContent = `🏆 Достижения ${getAch().length}/${ACH.length}`; $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") + (metaTot() ? ` · ${dynRank(metaTot())}` : "") : ""; show("menu"); }
 function draw() {
   // Колода помогает: когда показатель у края (низ или верх), не выпадают карточки, где оба ответа бьют в ту же сторону,
   // всегда есть ответ без вылета, а карточки с «разгрузкой» выпадают чаще. Сила помощи зависит от сложности.
@@ -257,15 +376,18 @@ function draw() {
 }
 function paint() {
   KEYS.forEach(k => { const f = $("f-" + k); f.style.width = stats[k] + "%"; f.classList.toggle("low", stats[k] <= 20 || stats[k] >= 80); });
-  $("year").textContent = `Король №${store.get("king_n", 1)} · ${age} ${plural(age)} · Год ${year}`;
+  $("year").textContent = `${kingName} · ${age} ${plural(age)} · Год ${year}`;
 }
 function render() {
   const e = EVENTS[cur];
-  $("av").textContent = e[0]; $("et").textContent = (e[5] ? "⛓ " : "") + e[1]; $("ed").textContent = e[2];
+  $("av").textContent = e[0]; const ch = charOf(e); $("who").textContent = ch.i + " " + ch.n + (ch.r ? ", " + ch.r : "") + mood(ch.id);
+  $("et").textContent = (e[5] ? "⛓ " : "") + e[1]; $("ed").textContent = e[2];
   const c = $("card"); c.style.transition = c.style.transform = c.style.opacity = ""; c.classList.remove("in"); void c.offsetWidth; c.classList.add("in");
 }
 function startGame() {
   stats = {army: 50, people: 50, treasury: 50, church: 50}; year = 1; age = START_AGE; hadHeir = false; history = new Set(); seen = new Set(); queue = []; busy = false; recent = [];
+  const nm = pickName(); kingName = nm.full; kingBase = nm.base; tally = {army: 0, people: 0, treasury: 0, church: 0};
+  const fv = store.get("king_favor", {}); favor = {}; Object.keys(CHARS).forEach(id => favor[id] = Math.round((fv[id] || 0) / 2));
   const prev = store.get("king_prev", null); if (prev) queue.push({k: "prev_" + prev, at: 2 + Math.floor(Math.random() * 3)});
   cur = draw(); paint(); render(); show("game"); sfx("start");
   if (!store.get("king_tut", false)) { store.set("king_tut", true); toast("Свайпай карточку: чем ярче значок, тем сильнее эффект"); }
@@ -273,6 +395,8 @@ function startGame() {
 function choose(i) {
   if (busy) return; busy = true;
   const o = EVENTS[cur][3 + i]; history.add(EVENTS[cur][1] + ":" + i);
+  KEYS.forEach((k, n) => tally[k] += o[n + 1]);
+  const who = charOf(EVENTS[cur]); if (who.s !== null) { favor[who.id] = Math.max(-100, Math.min(100, (favor[who.id] || 0) + o[who.s + 1])); store.set("king_favor", favor); }
   if (o[5]) queue.push({k: o[5], at: year + 2 + Math.floor(Math.random() * 3)});
   KEYS.forEach((k, n) => {
     const d = Math.round(o[n + 1] * DIFFS[diff].ease); if (!d) return;
@@ -286,6 +410,7 @@ function choose(i) {
     const dead = KEYS.find(k => stats[k] <= 0 || stats[k] >= 100);
     if (dead) return gameOver(dead);
     if (oldAgeDeath()) return gameOver("age");
+    liveAch();
     if (age === OLD_FROM) toast("🕯️ Вам уже " + age + ". Здоровье начинает подводить…");
     if (age === 75) toast("🕯️ " + age + " лет. Каждый год может стать последним.");
     if (DIFFS[diff].bonus && (year - 1) % 8 === 0) {
@@ -300,8 +425,15 @@ function gameOver(k) {
   const years = year - 1, best = bestOf();
   const kn = store.get("king_n", 1), tot = store.get("king_total", 0) + years; const was = tot - years; store.set("king_n", kn + 1); store.set("king_total", tot);
   store.set("king_prev", k === "age" ? "age" : stats[k] >= 100 ? "hi" : k);
+  const endKey = k === "age" ? "age" : stats[k] >= 100 ? k + "_hi" : k;
+  const ends = store.get("king_ends", []); if (!ends.includes(endKey)) { ends.push(endKey); store.set("king_ends", ends); }
+  const ep = epithet(years, k === "age");
+  const chron = store.get("king_chron", []);
+  chron.push({n: kn, name: kingName, base: kingBase, ep, years, age, cause: CAUSE[endKey], diff: DIFFS[diff].name}); store.set("king_chron", chron.slice(-30));
+  $("o-king").textContent = `${kingName} ${ep} · №${kn}`;
+  unlock("first"); if (k === "age") unlock("natural"); if (ends.length >= 9) unlock("ends"); if (kn >= 10) unlock("kings10"); if (tot >= 100) unlock("dyn100");
   const unlocked = [[40, "Заморское посольство"], [100, "Комета над столицей"]].filter(([t]) => was < t && tot >= t).map(([t, n]) => n);
-  $("o-dyn").textContent = `Король №${kn} · всего за династию: ${tot} ${plural(tot)} · ${dynRank(tot)}` + (unlocked.length ? ` · 📜 Новое событие: ${unlocked.join(", ")}` : "");
+  $("o-dyn").textContent = `Всего за династию: ${tot} ${plural(tot)} · ${dynRank(tot)}` + (unlocked.length ? ` · 📜 Новое событие: ${unlocked.join(", ")}` : "");
   const old = k === "age";
   const D = old ? [hadHeir ? "👑" : "⚰️", `Король скончался в ${age} ${plural(age)} своей смертью. ` + (hadHeir ? "Трон переходит к наследнику." : "Наследника нет, трон достанется дальнему родичу.")] : (stats[k] >= 100 ? DEATHS_HI : DEATHS)[k];
   $("o-ic").textContent = D[0]; $("o-r").textContent = D[1];
