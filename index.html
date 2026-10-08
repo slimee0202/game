@@ -89,12 +89,12 @@ h1{font-size:2.5rem;line-height:1.05;color:var(--gold);letter-spacing:.5px}
 .opts{display:none;flex-direction:column;gap:8px;margin-top:8px}
 .opts .btn{padding:9px;font-size:.95rem}
 body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-s="2"]{--velvet2:#4a2a22}body[data-s="3"]{--velvet2:#26324a}
-#menu,#over{overflow-y:auto;justify-content:flex-start;scrollbar-width:none}
-#menu::-webkit-scrollbar,#over::-webkit-scrollbar{display:none}
-#menu>:first-child,#over>:first-child{margin-top:auto}
-#menu>:last-child,#over>:last-child{margin-bottom:auto}
+#menu,#over{justify-content:center}
 #menu>*,#over>*{flex-shrink:0}
-@media(max-height:780px){#menu{gap:12px}#menu .crown svg{width:56px;height:56px}#menu h1{font-size:2rem}#menu .sub{font-size:.9rem;margin-top:6px}#menu .stack{gap:8px}#menu .btn{padding:11px;font-size:1rem}#menu .diff-d{min-height:0;font-size:.85rem}#over{gap:10px}#o-ic svg{width:64px;height:64px}.big{font-size:2.4rem}}
+@media(max-height:820px){#menu{gap:14px}#menu .crown svg{width:64px;height:64px}#menu h1{font-size:2.1rem}#menu .sub{font-size:.95rem;margin-top:6px}#menu .stack{gap:9px}#menu .btn{padding:12px;font-size:1.02rem}#menu .diff-d{min-height:0;font-size:.85rem}#over{gap:10px}#o-ic svg{width:64px;height:64px}.big{font-size:2.4rem}}
+#menu.c1 .sub,#menu.c1 .diff-d,#over.c1 #o-dyn{display:none}
+#menu.c2 .crown,#menu.c2 .btn small,#over.c2 #o-ic{display:none}
+#menu.c3 .vol,#menu.c3 .best,#over.c3 #o-r{display:none}
 </style>
 </head>
 <body>
@@ -456,7 +456,12 @@ const dynRank = t => t >= 250 ? "Великая династия" : t >= 100 ? "
 const oldAgeDeath = () => age >= MAX_AGE || (age >= OLD_FROM && rnd() < (age - OLD_FROM + 1) * .03 * (did("Королевский лекарь", 0) ? .7 : 1));
 
 function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); }
-function toMenu() { delete document.body.dataset.s; diff = store.get("king_diff", "normal"); if (!DIFFS[diff]) diff = "normal"; drawDiff(); const b = bestOf(); $("ach-btn").textContent = `🏆 Достижения ${getAch().length}/${ACH.length}`; $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") + (metaTot() ? ` · ${dynRank(metaTot())}` : "") : ""; show("menu"); }
+function fit(el) {            // подгоняет экран под высоту окна: сначала сжимаем, потом прячем второстепенное
+  ["c1", "c2", "c3"].forEach(c => el.classList.remove(c));
+  for (const c of ["c1", "c2", "c3"]) { if (el.scrollHeight <= el.clientHeight + 1) break; el.classList.add(c); }
+}
+window.addEventListener("resize", () => { const s = document.querySelector(".screen.on"); if (s && (s.id === "menu" || s.id === "over")) fit(s); });
+function toMenu() { delete document.body.dataset.s; diff = store.get("king_diff", "normal"); if (!DIFFS[diff]) diff = "normal"; drawDiff(); const b = bestOf(); $("ach-btn").textContent = `🏆 Достижения ${getAch().length}/${ACH.length}`; $("best").textContent = b ? `Лучшее правление: ${b} ${plural(b)}` + (store.get("king_n", 1) > 1 ? ` · на троне король №${store.get("king_n", 1)}` : "") + (metaTot() ? ` · ${dynRank(metaTot())}` : "") : ""; show("menu"); fit($("menu")); }
 function draw() {
   // Колода помогает: когда показатель у края (низ или верх), не выпадают карточки, где оба ответа бьют в ту же сторону,
   // всегда есть ответ без вылета, а карточки с «разгрузкой» выпадают чаще. Сила помощи зависит от сложности.
@@ -557,7 +562,7 @@ function gameOver(k) {
   else { $("o-new").textContent = years > best ? "Новый рекорд!" : ""; if (years > best) store.set("king_best_" + diff, years); }
   $("fade").style.opacity = .9; sfx(old ? "old" : "lose");
   if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(old ? "success" : "error");
-  setTimeout(() => { show("over"); $("fade").style.opacity = 0; }, 800);
+  setTimeout(() => { show("over"); fit($("over")); $("fade").style.opacity = 0; }, 800);
 }
 
 /* ---------- музыка и звуки (WebAudio, без файлов) ---------- */
