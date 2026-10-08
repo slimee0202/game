@@ -92,9 +92,9 @@ body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-
 #menu,#over{justify-content:center}
 #menu>*,#over>*{flex-shrink:0}
 @media(max-height:820px){#menu{gap:14px}#menu .crown svg{width:64px;height:64px}#menu h1{font-size:2.1rem}#menu .sub{font-size:.95rem;margin-top:6px}#menu .stack{gap:9px}#menu .btn{padding:12px;font-size:1.02rem}#menu .diff-d{min-height:0;font-size:.85rem}#over{gap:10px}#o-ic svg{width:64px;height:64px}.big{font-size:2.4rem}}
-#menu.c1 .sub,#menu.c1 .diff-d,#over.c1 #o-dyn{display:none}
-#menu.c2 .crown,#menu.c2 .btn small,#over.c2 #o-ic{display:none}
-#menu.c3 .vol,#menu.c3 .best,#over.c3 #o-r{display:none}
+#menu.c1 .crown,#over.c1 #o-dyn{display:none}
+#menu.c2 .btn small,#menu.c2 .best,#over.c2 #o-ic{display:none}
+#menu.c3 .vol,#over.c3 #o-r{display:none}
 </style>
 </head>
 <body>
@@ -104,7 +104,6 @@ body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-
   <div>
     <div class="crown" id="crown">👑</div>
     <h1>Симулятор<br>Короля</h1>
-    <p class="sub">Удержи Могущество, Преданность, Казну и Веру. Если любой показатель упадёт до нуля или дойдёт до максимума, правлению конец. А ещё король смертен: в старости он может умереть сам</p>
   </div>
   <div class="best" id="best"></div>
   <div class="stack">
@@ -113,6 +112,7 @@ body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-
     <button class="btn gold" onclick="startGame()">Начать правление</button>
     <button class="btn" onclick="startGame(true)">📅 Ежедневное правление<small>одна колода для всех на сутки</small></button>
     <div class="row2"><button class="btn" onclick="showChron()">📜 Летопись</button><button class="btn" id="ach-btn" onclick="showAch()">🏆 Достижения</button></div>
+    <button class="btn" onclick="show('rules')">📖 Правила</button>
     <button class="btn" id="snd-btn" onclick="toggleSound()">Звук: вкл</button>
     <div class="vol"><span>🔈</span><input type="range" id="vol" min="0" max="100" step="1" aria-label="Громкость"><span>🔊</span></div>
   </div>
@@ -158,6 +158,17 @@ body[data-s="0"]{--velvet2:#2a3a3a}body[data-s="1"]{--velvet2:#4a3a22}body[data-
 <section class="screen" id="chron">
   <div class="scr-h">📜 Летопись королей</div>
   <div class="list" id="chron-l"></div>
+  <button class="btn" onclick="toMenu()">Назад</button>
+</section>
+
+<section class="screen" id="rules">
+  <div class="scr-h">📖 Правила</div>
+  <div class="list">
+    <div class="item"><b>Цель</b><small>Удержи Могущество, Преданность, Казну и Веру. Если любой показатель упадёт до нуля или дойдёт до максимума, правлению конец.</small></div>
+    <div class="item"><b>Старость</b><small>Король смертен: в старости он может умереть сам.</small></div>
+    <div class="item"><b>Управление</b><small>Свайпай карточку вправо или влево. Чем ярче светится значок, тем сильнее эффект. В важных решениях три кнопки.</small></div>
+    <div class="item"><b>Время</b><small>Каждая карточка меняет сезон, четыре карточки равны одному году.</small></div>
+  </div>
   <button class="btn" onclick="toMenu()">Назад</button>
 </section>
 
